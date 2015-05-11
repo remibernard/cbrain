@@ -94,36 +94,78 @@ module UserfilesHelper
     ).html_safe
   end
 
-  def data_link(file_name, userfile)
+  # Returns HTML markup for a link to +userfile+ in a viewer's context.
+  # If no link can be made, (the file is not synced, for example) a flat name
+  # for the file is returned.
+  # The available +options+ are the same as for viewer_userfile_url, with
+  # the addition of:
+  #  [:display]     Text to display on the link. Default is taken from +userfile+
+  #                 if possible.
+  #  [:html_target] HTML target attribute for the link. Default is '_blank', for
+  #                 a new page.
+  def viewer_userfile_link(userfile, options)
+    display   = options.delete(:display)
+    display ||= userfile.name
+    display ||= Pathname.new(userfile.cache_full_path).basename.to_s if userfile.respond_to?(:cache_full_path)
+    display ||= "<unknown>"
+    target    = options.delete(:html_target) || "_blank"
+
+    return h(display) unless userfile.is_locally_synced?
+
+    link_to h(display),
+      viewer_userfile_url(userfile, options),
+      :target => target
+  end
+
+  # Returns a URL to +userfile+ in a viewer's context.
+  # The +options+ argument can contain:
+  #  [:action]       Controller action to call on the userfiles controller.
+  #                  Default is :display
+  #  [:page_type]    Target page to display in. Only meaningful if the :display
+  #                  action is used. The possible values are 'full', for a full
+  #                  page with headers (default), 'show' for within the show
+  #                  page and 'bare' for a completely blank page.
+  #  [:query_params] Hash of additional URL query parameters to add to the URL
+  def viewer_userfile_url(userfile, options)
+    # If +userfile+ is a proxy, pass on the parameters to allow the controller
+    # for +action+ to re-create the proxy.
+    proxy_params = userfile.proxy_parameters
+      .map { |k,v| ["proxy_" + k.to_s, v] }
+      .to_h
+      .merge({
+        :use_proxy => "true",
+        :source_id => userfile.proxy_source.id,
+        :file_type => userfile.class.name
+      }) if userfile.is_proxy?
+
+    url_for({
+        :controller => :userfiles,
+        :id         => userfile.is_proxy? ? 0 : userfile.id,
+        :action     => options[:action]    || :display,
+        :page_type  => options[:page_type] || :full,
+      }
+      .merge(proxy_params || {})
+      .merge(options[:query_params] || {})
+    )
+  end
+
+  # Returns HTML markup for a link to +file+ inside +collection+.
+  # This method is specific to FileCollections
+  def collection_file_link(collection, file)
+    file_name     = file.name
+    file_type     = Userfile.suggested_file_type(file_name)
     display_name  = Pathname.new(file_name).basename.to_s
-    return h(display_name) unless userfile.is_locally_synced?
 
-    matched_class = SingleFile.descendants.unshift(SingleFile).find { |c| file_name =~ c.file_name_pattern }
-    return h(display_name) unless matched_class
+    # Only link to simple files we can detect the type of
+    return h(display_name) unless file_type && file_type <= SingleFile
 
-    if matched_class <= TextFile
-      link_to h(display_name),
-              display_userfile_path(userfile,
-                :content_loader        => :collection_file,
-                :arguments             => file_name,
-                :viewer                => :text_file,
-                :viewer_userfile_class => :TextFile,
-                :content_viewer        => "off",
-              ),
-              :target => "_blank"
-    elsif matched_class <= ImageFile
-      link_to h(display_name),
-              display_userfile_path(userfile,
-                :content_loader        => :collection_file,
-                :arguments             => file_name,
-                :viewer                => :image_file,
-                :viewer_userfile_class => :ImageFile,
-                :content_viewer        => "off",
-              ),
-              :target => "_blank"
-    else
-       h(display_name)
-    end
+    # Create a proxy userfile for +file+
+    proxy = file_type.proxy(collection, {
+      :file_name => file.name,
+      :file_size => file.size
+    })
+
+    viewer_userfile_link(proxy, :display => display_name)
   end
 
   # Return the HTML code that represent a symbol

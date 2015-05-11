@@ -205,7 +205,12 @@ class UserfilesController < ApplicationController
   #####################################################
   #GET /userfiles/1/content?option1=....optionN=...
   def content
-    @userfile = Userfile.find_accessible_by_user(params[:id], current_user, :access_requested => :read)
+    # Is a proxy required?
+    if params[:id] == 0 || params[:use_proxy] == "true"
+      @userfile = create_proxy_userfile
+    else
+      @userfile = Userfile.find_accessible_by_user(params[:id], current_user, :access_requested => :read)
+    end
 
     content_loader = @userfile.find_content_loader(params[:content_loader])
     argument_list  = params[:arguments] || []
@@ -221,9 +226,12 @@ class UserfilesController < ApplicationController
       else
         render content_loader.type => response_content
       end
-    else
-      @userfile.sync_to_cache
+    elsif @userfile.respond_to?(:cache_full_path)
+      @userfile.sync_to_cache if @userfile.respond_to?(:sync_to_cache)
       send_file @userfile.cache_full_path, :stream => true, :filename => @userfile.name
+    else
+      # No content loader, no path. Not sure what we can do...
+      render :nothing => true
     end
   rescue
     respond_to do |format|
@@ -234,14 +242,19 @@ class UserfilesController < ApplicationController
   end
 
   def display
-    @userfile = Userfile.find_accessible_by_user(params[:id], current_user, :access_requested => :read)
+    # Is a proxy required?
+    if params[:id] == 0 || params[:use_proxy] == "true"
+      @userfile = create_proxy_userfile
+    else
+      @userfile = Userfile.find_accessible_by_user(params[:id], current_user, :access_requested => :read)
+    end
 
-    viewer_name           = params[:viewer]
+    viewer_name           = params[:viewer] || @userfile.viewers.first.name
     viewer_userfile_class = params[:viewer_userfile_class].presence.try(:constantize) || @userfile.class
 
     # Try to find out viewer aming those registered in the classes
-    @viewer      = viewer_userfile_class.find_viewer(viewer_name)
-    @viewer    ||= (viewer_name.camelcase.constantize rescue nil).try(:find_viewer, viewer_name) rescue nil
+    @viewer   = viewer_userfile_class.find_viewer(viewer_name)
+    @viewer ||= (viewer_name.camelcase.constantize rescue nil).try(:find_viewer, viewer_name) rescue nil
 
     # If no viewer object is found but the argument "viewer_name" correspond to a partial
     # on disk, then let's create a transient viewer object representing that file.
@@ -1661,6 +1674,25 @@ class UserfilesController < ApplicationController
     sorted_scope = sorted_scope.order('userfiles.name') unless filters["sort_hash"]["order"] == 'userfiles.name'
 
     return sorted_scope, joins
+  end
+
+  # Create a proxy userfile from query parameters (params)
+  def create_proxy_userfile
+    # Obtain the source userfile used to back the proxy
+    source       = Userfile.find_accessible_by_user(params[:source_id], current_user, :access_requested => :read)
+
+    # Extract proxy parameters
+    proxy_params = params
+      .select { |k,v| k.start_with?("proxy_")            }
+      .map    { |k,v| [ k.sub(/^proxy_/, "").to_sym, v ] }
+      .to_h
+
+    # Create the proxy userfile
+    file_type    = params[:file_type].presence.try(:constantize) rescue nil
+    file_type    = SingleFile unless file_type <= SingleFile
+
+    # FIXME pass additional base userfile attributes to the proxy?
+    file_type.proxy(source, proxy_params, { :user_id => current_user.id })
   end
 
 end

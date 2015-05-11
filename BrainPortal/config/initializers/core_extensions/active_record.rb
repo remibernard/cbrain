@@ -90,6 +90,12 @@ module ActiveRecord #:nodoc:
     include CBRAINExtensions::ActiveRecordExtensions::HiddenAttributes
 
     ###################################################################
+    # ActiveRecord added behavior for transient records
+    ###################################################################
+
+    include CBRAINExtensions::ActiveRecordExtensions::Transient
+
+    ###################################################################
     # +scopes+ method behaviour lost in Rails 3.1.
     ###################################################################
 

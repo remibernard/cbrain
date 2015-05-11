@@ -161,15 +161,33 @@ class FileCollection < Userfile
     end
   end
 
-  # Content loader
-  def collection_file(path_string)
-    return nil unless self.list_files.find { |f| f.name == path_string }
+  ##################################################################
+  # Userfile Proxy API
+  ##################################################################
 
-    path = self.cache_full_path.parent + path_string
+  # Bind +userfile+ as a proxy to a file (file_name parameter inside +parameters+)
+  # inside this collection.
+  def bind_as_proxy(userfile, parameters)
+    # Obtain the full cached file path
+    file_name = parameters[:file_name]
+    return unless file_name && self.list_files.find { |f| f.name == file_name }
 
-    return nil unless File.exist?(path) and File.readable?(path) and !(File.directory?(path) || File.symlink?(path) )
+    path = self.cache_full_path.parent + file_name
+    return unless File.exists?(path) && File.readable?(path) && !File.directory?(path) && !File.symlink?(path)
 
-    path
+    # Basic attributes
+    userfile.name = file_name
+    userfile.size = parameters[:file_size] || File.size(path)
+
+    # Implement relevant DP access methods
+    userfile.define_singleton_method(:cache_full_path) { path }
+    userfile.define_singleton_method(:cache_readhandle) do |rel_path, &block|
+      cb_error "Error: directly reading from a collection proxy is not supported yet" if userfile.is_a?(FileCollection)
+
+      File.open(path, "r") do |fh|
+        block.call(fh)
+      end
+    end
   end
 
   ##################################################################

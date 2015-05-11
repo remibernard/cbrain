@@ -267,14 +267,20 @@ class UserfilesController < ApplicationController
     end
 
     # Ok, some viewers are invalid for some specific userfiles, so reject it if it's the case.
-    @viewer      = nil if @viewer && ! @viewer.valid_for?(@userfile)
+    @viewer           = nil if @viewer && ! @viewer.valid_for?(@userfile)
+
+    # Find out where the userfile is to be displayed (default is within the show page)
+    @page_type        = (params[:page_type] || "show").to_sym
+    @page_type        = :bare if params[:apply_div] == "false" # For compatibility with old viewers
 
     begin
       if @viewer
-        if params[:apply_div] == "false"
-          render :file   => @viewer.partial_path.to_s, :layout => false
-        else
-          render :action => :display,                  :layout => false
+        if @page_type == :show
+          render :partial=> "userfiles/display_add_div", :layout => false
+        elsif @page_type == :full && @viewer.respond_to?(:full_page?) && @viewer.full_page?
+          render :action  => :display
+        else # :raw or :bare
+          render :file    => @viewer.partial_path.to_s,  :layout => false
         end
       else
         render :text => "<div class=\"warning\">Could not find viewer #{viewer_name}.</div>", :status  => "404"
@@ -322,6 +328,9 @@ class UserfilesController < ApplicationController
 
       @previous_userfile, @next_userfile = neighbors
     end
+
+    # Used by viewer plugins to adjust their rendering
+    @page_type = :show
 
     respond_to do |format|
       format.html

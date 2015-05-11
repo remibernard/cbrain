@@ -703,12 +703,15 @@ class Userfile < ActiveRecord::Base
 
       name           = atts.delete(:name)
       partial        = atts.delete(:partial)
-      att_if         = atts.delete(:if)      || []
+      full_page      = atts.delete(:full_page?) || false
+      att_if         = atts.delete(:if)         || []
       cb_error "Unknown viewer option: '#{atts.keys.first}'." unless atts.empty?
 
       @userfile_class = userfile_class
       @name           = name      || partial.to_s.classify.gsub(/([a-z])([A-Z])/, '\1 \2')
       @partial        = partial   || name.to_s.gsub(/\s+/, "").underscore
+
+      define_singleton_method(:full_page?) { full_page }
 
       @conditions     = []
       att_if = [ att_if ] unless att_if.is_a?(Array)

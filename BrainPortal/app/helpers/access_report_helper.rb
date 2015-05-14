@@ -52,7 +52,7 @@ module AccessReportHelper
     legend_a.each do |pair|
       symbol = pair[0]
       label  = pair[1]
-      legend += "#{symbol}:&nbsp#{label}&nbsp;&nbsp;&nbsp;&nbsp;"
+      legend += "#{symbol}:&nbsp#{label}&nbsp;&nbsp;&nbsp;&nbsp; "
     end
     legend += "</center>\n"
     return legend.html_safe

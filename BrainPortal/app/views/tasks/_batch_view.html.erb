@@ -65,7 +65,7 @@
         <% end %>
       <% end %>
     </td>
-    <td><%= overlay_description(first_task.description, :header_width => 35) if batch_id %></td>
+    <td class="left shrinkable"><%= overlay_description(first_task.description, :header_width => 35) if batch_id %></td>
     <td><%= link_to_user_if_accessible(first_task.user) if batch_id %></td>
     <% unless current_project %>
       <td><%= link_to_group_if_accessible(first_task.group) if batch_id %></td>

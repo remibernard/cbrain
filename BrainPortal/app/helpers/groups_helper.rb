@@ -48,7 +48,7 @@ module GroupsHelper
     return if groups.blank?
 
     center_legend(nil, groups.map { |g| css_group_type(g) }.uniq.map { |g|
-      ["<span class=\"#{g}_project_point\">&##{g == "all" ? 9675 : 9679};</span>", "#{g.titleize} Project"]
+      ["<span class=\"#{g}_project_point\">&##{g == "all" ? 9675 : 9679};</span>", "#{g.titleize}&nbsp;Project"]
     })
   end
 end

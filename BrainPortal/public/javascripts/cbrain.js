@@ -75,6 +75,32 @@
     }
   }
 
+  // Make sure an absolutely positionned element doesn't go off the page by
+  // shifting it left/up as necessary.
+  (function ($) {
+    var window_size = {
+        width:  $('html').width(),
+        height: $('html').height()
+    };
+
+    // Have some leeway from the screen's edge
+    var gap = 5;
+
+    $.fn.fitInPage = function () {
+      var position = this.offset(),
+          size     = {
+            width:  this.outerWidth(),
+            height: this.outerHeight()
+          };
+
+      if (window_size.width < position.left + size.width)
+        this.css({ left: window_size.width - size.width - gap });
+
+      if (window_size.height < position.top + size.height)
+        this.css({ top: window_size.height - size.height - gap });
+    };
+  })(jQuery);
+
   //Behaviours for newly loaded content that isn't triggered
   //by the user.
   //
@@ -216,7 +242,7 @@
         menu.hide();
       } else {
         loaded_element.find(".drop_down_menu:visible").hide();
-        menu.show();
+        menu.show().fitInPage();
       }  
     });
      
@@ -568,7 +594,7 @@
     });
     
     var filter_header_timeout = null; 
-    
+
     $(document).delegate(".filter_header", "mouseenter", function() {
       
       if (filter_header_timeout) {
@@ -581,7 +607,7 @@
       var search = target.find(".filter_search");
       
       filter_header_timeout = setTimeout(function() {
-        target.show();
+        target.show().fitInPage();
         search.focus();
       }, 500);
       
@@ -601,7 +627,7 @@
       var header = $(this);
       var target = $(header.attr("data-target"));
       
-      target.show();
+      target.show().fitInPage();
       header.mouseleave(function() {
         target.hide();
         return false;
@@ -664,6 +690,7 @@
         } else {
           target_element.show();
         }
+        target_element.fitInPage();
       }
 
       return false;  

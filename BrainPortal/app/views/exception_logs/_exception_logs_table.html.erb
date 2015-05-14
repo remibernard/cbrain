@@ -52,7 +52,9 @@
         check_box_tag("exception_log_ids[]", e.id, nil, :class  => 'exception_log_checkbox')
       end
       t.sort_column("Exception", 'ExceptionLog', 'exception_class', :filters => basic_filters_for(@filtered_scope, ExceptionLog.scoped, ExceptionLog, :exception_class)) { |e| link_to e.exception_class, e }
-      t.column("Message") { |e| crop_text_to(75, e.message)  }
+      t.describe_column("Message", :class => "left shrinkable") do |col|
+        col.cell(:class => "left shrinkable") { |e| e.message }
+      end
       t.sort_column("Method", 'ExceptionLog', 'request_method', :filters => basic_filters_for(@filtered_scope, ExceptionLog.scoped, ExceptionLog, :request_method), &:request_method)
       t.sort_column("Controller", 'ExceptionLog', 'request_controller', :filters => basic_filters_for(@filtered_scope, ExceptionLog.scoped, ExceptionLog, :request_controller), &:request_controller)
       t.sort_column("Action", 'ExceptionLog', 'request_action', :filters => basic_filters_for(@filtered_scope, ExceptionLog.scoped, ExceptionLog, :request_action), &:request_action)

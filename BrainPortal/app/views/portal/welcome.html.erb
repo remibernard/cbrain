@@ -25,6 +25,7 @@
 <% title 'Welcome' %>
 
 <h1>Welcome to CBRAIN, <%= current_user.full_name %></h1>
+<div id="welcome_panels">
 
 <% if current_user.has_role?(:admin_user) %>
 
@@ -218,5 +219,4 @@
 
 <% end %>
 
-
-
+</div>

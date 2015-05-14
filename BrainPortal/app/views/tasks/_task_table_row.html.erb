@@ -39,7 +39,7 @@
     <td></td>
 <% end %>
     <td class="left"><%= tree_view_icon(task.level) if is_child %><%= link_to_task_if_accessible(task, nil, :name => task.pretty_name) %></td>
-    <td><%= overlay_description(task.description, :header_width => 35) %></td>
+    <td class="left shrinkable"><%= overlay_description(task.description, :header_width => 35) %></td>
     <td><%= link_to_user_if_accessible(task.user) %></td>
     <% unless current_project %>
       <td><%= link_to_group_if_accessible(task.group) %></td>

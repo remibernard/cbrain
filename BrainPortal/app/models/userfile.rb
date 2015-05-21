@@ -43,6 +43,8 @@ class Userfile < ActiveRecord::Base
 
   Revision_info=CbrainFileRevision[__FILE__] #:nodoc:
 
+  include UserfileProxies
+
   cbrain_abstract_model! # objects of this class are not to be instanciated
 
   after_save              :update_format_group

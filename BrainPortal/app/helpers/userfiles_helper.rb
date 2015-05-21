@@ -103,7 +103,7 @@ module UserfilesHelper
   #                 if possible.
   #  [:html_target] HTML target attribute for the link. Default is '_blank', for
   #                 a new page.
-  def viewer_userfile_link(userfile, options)
+  def viewer_userfile_link(userfile, options = {})
     display   = options.delete(:display)
     display ||= userfile.name
     display ||= Pathname.new(userfile.cache_full_path).basename.to_s if userfile.respond_to?(:cache_full_path)
@@ -126,17 +126,15 @@ module UserfilesHelper
   #                  page with headers (default), 'show' for within the show
   #                  page and 'bare' for a completely blank page.
   #  [:query_params] Hash of additional URL query parameters to add to the URL
-  def viewer_userfile_url(userfile, options)
+  def viewer_userfile_url(userfile, options = {})
     # If +userfile+ is a proxy, pass on the parameters to allow the controller
     # for +action+ to re-create the proxy.
-    proxy_params = userfile.proxy_parameters
-      .map { |k,v| ["proxy_" + k.to_s, v] }
-      .to_h
-      .merge({
-        :use_proxy => "true",
-        :source_id => userfile.proxy_source.id,
-        :file_type => userfile.class.name
-      }) if userfile.is_proxy?
+    proxy_params = {
+      :use_proxy => "true",
+      :source_id => userfile.proxy_source.id,
+      :file_type => userfile.class.name,
+      :proxy     => userfile.proxy_parameters
+    } if userfile.is_proxy?
 
     url_for({
         :controller => :userfiles,

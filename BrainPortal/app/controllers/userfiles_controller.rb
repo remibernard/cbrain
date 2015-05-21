@@ -207,7 +207,9 @@ class UserfilesController < ApplicationController
   def content
     # Is a proxy required?
     if params[:id] == 0 || params[:use_proxy] == "true"
-      @userfile = create_proxy_userfile
+      source    = Userfile.find_accessible_by_user(params[:source_id], current_user, :access_requested => :read)
+      file_type = params[:file_type].presence.try(:constantize) rescue nil
+      @userfile = create_proxy_userfile(source, file_type, params[:proxy])
     else
       @userfile = Userfile.find_accessible_by_user(params[:id], current_user, :access_requested => :read)
     end
@@ -244,7 +246,9 @@ class UserfilesController < ApplicationController
   def display
     # Is a proxy required?
     if params[:id] == 0 || params[:use_proxy] == "true"
-      @userfile = create_proxy_userfile
+      source    = Userfile.find_accessible_by_user(params[:source_id], current_user, :access_requested => :read)
+      file_type = params[:file_type].presence.try(:constantize) rescue nil
+      @userfile = create_proxy_userfile(source, file_type, params[:proxy])
     else
       @userfile = Userfile.find_accessible_by_user(params[:id], current_user, :access_requested => :read)
     end
@@ -1685,23 +1689,11 @@ class UserfilesController < ApplicationController
     return sorted_scope, joins
   end
 
-  # Create a proxy userfile from query parameters (params)
-  def create_proxy_userfile
-    # Obtain the source userfile used to back the proxy
-    source       = Userfile.find_accessible_by_user(params[:source_id], current_user, :access_requested => :read)
-
-    # Extract proxy parameters
-    proxy_params = params
-      .select { |k,v| k.start_with?("proxy_")            }
-      .map    { |k,v| [ k.sub(/^proxy_/, "").to_sym, v ] }
-      .to_h
-
-    # Create the proxy userfile
-    file_type    = params[:file_type].presence.try(:constantize) rescue nil
-    file_type    = SingleFile unless file_type <= SingleFile
-
+  # Create a proxy userfile of type +file_type+ backed by +source+ from +params+
+  def create_proxy_userfile(source, file_type, params)
     # FIXME pass additional base userfile attributes to the proxy?
-    file_type.proxy(source, proxy_params, { :user_id => current_user.id })
+    file_type = SingleFile unless file_type <= SingleFile
+    file_type.proxy(source, params, { :user_id => current_user.id })
   end
 
 end

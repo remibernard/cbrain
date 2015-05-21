@@ -29,17 +29,21 @@ module CBRAINExtensions #:nodoc:
 
       Revision_info=CbrainFileRevision[__FILE__] #:nodoc:
 
+      # Save-like methods that commit the record to persistent storage.
+      SAVE_METHODS = [ :save, :save!, :update_attribute, :update_attributes, :update_attributes! ]
+
       # Mark the record as transient and void all save-like methods. To avoid
       # special paths for transient records, save operations always behave as
-      # if they succeeded while having no effect.
-      def transient!
-        [ :save,
-          :save!,
-          :update_attribute,
-          :update_attributes,
-          :update_attributes!
-        ].each do |m|
-          define_singleton_method(m) { |*args| true }
+      # if they succeeded while having no effect unless +raise_on_save+ is true
+      def transient!(raise_on_save = false)
+        SAVE_METHODS.each do |m|
+          define_singleton_method(m) do |*args|
+            if raise_on_save
+              cb_error "Internal error: attempt to invoke method '#{m}' on a transient record"
+            else
+              true
+            end
+          end
         end
       end
 

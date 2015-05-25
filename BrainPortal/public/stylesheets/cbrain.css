@@ -1440,11 +1440,20 @@ pre {
 .userfiles_tool_selector {
   padding: 0 1em;
   display: table-row;
+  width: 200px;
+}
+
+.userfiles_tool_selector .ui-menu {
+  width: 200px;
 }
 
 .userfiles_bourreau_selector {
   padding: 0 1em;
   display: table-row;
+}
+
+.userfiles_bourreau_selector .button {
+  z-index: auto;
 }
 
 /* % ######################################################### */

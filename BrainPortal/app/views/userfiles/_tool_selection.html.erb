@@ -26,8 +26,17 @@
 
 <% if tool_list.present? %>
 
-  <% grouped_tools = tool_list.group_by(&:category) %>
-  <% grouped_tools = grouped_tools.map{ |cat, tools| [cat.pluralize.titleize, tools.sort { |t1,t2| t1.name <=> t2.name }.map { |t| [t.select_menu_text, t.id] }] }.sort_by(&:first) %>
+  <%
+    all_tools = tool_list.order(:name).all
+      .hashed_partitions do |tool|
+        plugin = tool.cbrain_task_class.constantize.plugin_name rescue "unknown"
+        plugin = "CBRAIN" if ["core", "base"].include? plugin
+        plugin
+      end
+      .map { |plugin,tools| [plugin, tools.hashed_partitions { |tool| tool.category }] }
+      .to_h
+  %>
+
 
    <p class="medium_paragraphs">
    This panel allows you to launch the scientific tasks that have been made available
@@ -44,16 +53,34 @@
    its scientific parameters.
    </p>
 
-   <div class="userfiles_tool_selector">
-    <%= ajax_onchange_select(
-          "tool_id",
-          url_for(:controller  => :tools, :action => :tool_config_select),
-          "<option value=\"\">Select a task to launch</option>".html_safe + grouped_options_for_select(grouped_tools),
-          :target  => "#tool_version_selector",
-          :loading_message  => "<span class='warning'>Checking availability...</span>"
-      )
-    %>
-   </div>
+  <% content_for :scripts do %>
+    <%= javascript_tag (render :partial => "tool_selection.js.erb", :formats => [:js]).to_s %>
+  <% end %>
+
+  <ul class="userfiles_tool_selector">
+    <% all_tools.each do |plugin,categories| %>
+      <% if categories.empty? %>
+        <li class="plugin ui-state-disabled"><%= "#{plugin.titleize} Tasks" %></li>
+      <% else %>
+        <li class="plugin">
+          <%= "#{plugin.titleize} Tasks" %>
+          <ul>
+            <% categories.each do |category,tools| %>
+              <% next if tools.empty? %>
+              <% if categories.size > 1 %>
+                <li class="category ui-widget-header"><%= category.pluralize.titleize %></li>
+              <% end %>
+              <% tools.each do |tool| %>
+                <li class="tool" data-id="<%= tool.id %>"><%= tool.name %></li>
+              <% end %>
+            <% end %>
+          </ul>
+        </li>
+      <% end%>
+    <% end %>
+  </ul>
+  <input type="hidden" id="tool_id" name="tool_id" value="0" />
+  <input type="hidden" disabled="disabled" id="tool_name" value="" />
 
    <br>
 

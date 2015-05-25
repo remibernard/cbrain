@@ -1,0 +1,50 @@
+
+<%-
+#
+# CBRAIN Project
+#
+# Copyright (C) 2008-2012
+# The Royal Institution for the Advancement of Learning
+# McGill University
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+-%>
+
+$(document).ready(function () {
+  "use strict";
+
+  var config_url = "<%= j (url_for(:controller  => :tools, :action => :tool_config_select)) %>";
+
+  var tool_id    = $('input#tool_id'),
+      tool_name  = $('input#tool_name'),
+      config_div = $('div#tool_version_selector');
+
+  /* Format the tool list as a nice jQuery UI menu */
+  $('ul.userfiles_tool_selector')
+    .menu({ items: "> :not(.ui-widget-header)" })
+    .find('.tool').click(function (event) {
+      var selected_id = $(this).data('id');
+      if (selected_id == tool_id.val()) return;
+
+      tool_id.val(selected_id);
+      tool_name.val($(this).text());
+
+      config_div.append($('<span class="warning">Checking availability...</span>'));
+      $.get(config_url, { tool_id: selected_id }, function (content) {
+        config_div.html(content);
+        config_div.trigger('new_content');
+      });
+    });
+});

@@ -252,6 +252,26 @@ class Userfile < ActiveRecord::Base
     end
   end
 
+  # Returns name of the plugin this userfile class belongs to, or "core"
+  # if it is a core CBRAIN model.
+  def self.plugin_name
+    return @plugin_name if @plugin_name
+
+    methods   = self.methods(false)
+    methods ||= self.instance_methods(false)
+    # FIXME not much can be done if the class doesn't have any methods...
+    return @plugin_name = "unknown" if methods.empty?
+
+    path = methods
+      .map  { |m| self.method(m).source_location[0] }
+      .find { |p| p.start_with? CBRAIN::UserfilesPlugins_Dir }
+    return @plugin_name = "core" unless path
+
+    path         = File.realpath(path)
+    @plugin_name = Regexp.new(Regexp.quote(CBRAIN::Plugins_Dir) + "/?([^/]+)").match(path)[1]
+    @plugin_name = Regexp.last_match[1] if @plugin_name =~ /cbrain-plugins-(\w+)/
+    @plugin_name
+  end
 
 
   ##############################################

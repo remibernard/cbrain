@@ -100,7 +100,7 @@ module SelectBoxHelper
       group_category_name = entry.first.sub(/Project/,"Projects")
       group_pairs         = entry.last.sort_by(&:name).map do |group|
         label = group_labels[group.id] || group.name
-        [label, group.id.to_s]
+        [label, group.id.to_s, { :title => group.description }]
       end
       category_grouped_pairs[group_category_name] = group_pairs
     end
@@ -168,17 +168,17 @@ module SelectBoxHelper
     grouped_dps     = data_providers.group_by{ |dp| dp.is_browsable? ? "User Storage" : "CBRAIN Official Storage" }
     grouped_oplists = []
     [ "CBRAIN Official Storage", "User Storage" ].collect do |group_title|
-       next unless dps_in_group = grouped_dps[group_title]
-       dps_in_group = dps_in_group.sort_by(&:name)
-       options_dps  = dps_in_group.map do |dp|
-         opt_pair = [ dp.name, dp.id.to_s ]
-         if (! dp.online?) && (! options[:offline_is_ok])
-           opt_pair[0] += " (offline)"
-           opt_pair << { :disabled => "true" }
-         end
-         opt_pair #  [ "DpName", "3" ]    or   [ "DpName (offline)", "3", { :disabled => "true" } ]
-       end
-       grouped_oplists << [ group_title, options_dps ]  # [ "GroupName", [  [ dp1, 1 ], [dp2, 2] ] ]
+      next unless dps_in_group = grouped_dps[group_title]
+      dps_in_group = dps_in_group.sort_by(&:name)
+      options_dps  = dps_in_group.map do |dp|
+        opt_pair = [ dp.name, dp.id.to_s, { :title => dp.description } ]
+        if (! dp.online?) && (! options[:offline_is_ok])
+          opt_pair[0] += " (offline)"
+          opt_pair[2][:disabled] = "true"
+        end
+        opt_pair #  [ "DpName", "3", { :title => "..." } ] or [ "DpName (offline)", "3", { :title => "...", :disabled => "true" } ]
+      end
+      grouped_oplists << [ group_title, options_dps ]  # [ "GroupName", [  [ dp1, 1 ], [dp2, 2] ] ]
     end
     grouped_options = grouped_options_for_select(grouped_oplists.compact, selected)
 
@@ -221,12 +221,12 @@ module SelectBoxHelper
     return "<strong style=\"color:red\">No Execution Servers Available</strong>".html_safe if bourreaux.blank?
 
     bourreaux_pairs = bourreaux.sort_by(&:name).map do |b|
-       opt_pair = [ b.name, b.id.to_s ]
-       if (! b.online?) && (! options[:offline_is_ok])
-         opt_pair[0] += " (offline)"
-         opt_pair << { :disabled => "true" }
-       end
-       opt_pair #  [ "BoName", "3" ]    or   [ "BoName", "3", { :disabled => "true" } ]
+      opt_pair = [ b.name, b.id.to_s, { :title => b.description } ]
+      if (! b.online?) && (! options[:offline_is_ok])
+        opt_pair[0] += " (offline)"
+        opt_pair[2][:disabled] = "true"
+      end
+      opt_pair #  [ "BoName", "3", { :title => "..." } ] or [ "BoName (offline)", "3", { :title => "...", :disabled => "true" } ]
     end
     options_html   = options_for_select(bourreaux_pairs, selected)
     blank_label    = select_tag_options.delete(:include_blank) || options[:include_blank]

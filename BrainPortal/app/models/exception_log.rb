@@ -53,13 +53,29 @@ class ExceptionLog < ActiveRecord::Base
                           :parameters  => params.inspect,
                           :format      => request.format.to_s
                           }
-    e.session            = session
+    e.session            = session.to_hash
     e.request_headers    = hdrs
     e.instance_name      = CBRAIN::Instance_Name rescue "(?)"
     e.revision_no        = $CBRAIN_StartTime_Revision
     e.save
 
     e
+  end
+
+  after_find :replace_attributes_too_big
+  attr_accessor :truncated_attributes
+
+  def replace_attributes_too_big
+    raw = {}
+    self.class.serialized_attributes.keys.each do |att|
+      att = att.to_sym
+      val = self.send(att)
+      next unless val.is_a?(String) # when string, something went wrong
+      self.send("#{att}=", { :too_long => "the information for \"#{att}\" was too long to fit in the DB..." })
+      raw[att] = val # so we can still display it in the interface
+    end
+    self.truncated_attributes = raw
+    true
   end
 
 end

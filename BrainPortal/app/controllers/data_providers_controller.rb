@@ -21,6 +21,8 @@
 #
 
 # RESTful controller for the DataProvider resource.
+
+
 class DataProvidersController < ApplicationController
 
   Revision_info=CbrainFileRevision[__FILE__] #:nodoc:
@@ -29,6 +31,7 @@ class DataProvidersController < ApplicationController
 
   before_filter :login_required
   before_filter :manager_role_required, :only => [:new, :create]
+  before_filter :admin_role_required,   :only => [:report, :repair]
 
   API_HIDDEN_ATTRIBUTES = [ :cloud_storage_client_identifier, :cloud_storage_client_token ]
 
@@ -643,13 +646,76 @@ class DataProvidersController < ApplicationController
 
   end
 
+  # Report inconsistencies in the data provider.
+  def report
+    @provider = DataProvider.find(params[:id])
+    @issues   = @provider.provider_report(params[:reload])
+
+    respond_to do |format|
+      format.html # report.html.erb
+      format.xml  { render :xml  => { :issues => @issues } }
+      format.json { render :json => { :issues => @issues } }
+    end
+  end
+
+  # Repair one or more inconsistencies in the data provider.
+  def repair
+    @provider = DataProvider.find(params[:id])
+    @issues   = @provider.provider_report.select { |i| params[:issue_ids].include? i[:id].to_s }
+
+    # Try to repair the inconsistencies (or issues)
+    failed_list  = []
+    success_list = []
+    @issues.each do |issue|
+      begin
+        @provider.provider_repair(issue)
+        success_list << issue
+      rescue => ex
+        failed_list  << [issue, ex]
+      end
+    end
+
+    # Display a message reporting how many issues were repaired
+    unless @issues.empty?
+      if failed_list.empty?
+        Message.send_message(current_user,
+          :message_type  => :notice,
+          :header        => "#{@issues.size} issue(s) repaired successfully.",
+          :variable_text => success_list.map do |issue|
+            line  = ["|#{issue[:message]}|: repaired"]
+            line << " (action taken: #{issue[:action].to_s.titleize})" if issue[:action]
+            line << "\n"
+            line.join
+          end.join
+        )
+      else
+        Message.send_message(current_user,
+          :message_type  => :error,
+          :header        => "Out of #{@issues.size} issue(s), #{failed_list.size} could not be repaired:",
+          :variable_text => failed_list.map { |issue,ex| "|#{issue[:message]}|: #{ex.message}\n" }.join
+        )
+      end
+    end
+
+    api_response = {
+      :repaired => success_list,
+      :failed   => failed_list.map { |issue,ex| { :issue => issue, :exception => ex.message } }
+    }
+
+    respond_to do |format|
+      format.html { redirect_to :action => :report }
+      format.xml  { render      :xml    => api_response }
+      format.json { render      :json   => api_response }
+    end
+  end
+
   private
 
   def get_type_list #:nodoc:
-    # This list may contain 'LocalDataProvider' which is useless in any environments
-    # where there are distributed resources. It would only work in a CBRAIN environment
-    # where all portals and bourreaux are on the same machine.
-    (check_role(:site_manager) || check_role(:admin_user)) ? DataProvider.descendants.map(&:name) : %w{ SshDataProvider }
+    data_provider_list = (check_role(:site_manager) || check_role(:admin_user)) ? DataProvider.descendants.map(&:name).sort : %w{ SshDataProvider }     
+    grouped_options = data_provider_list.hashed_partitions { |name| name.constantize.pretty_category_name }
+    grouped_options.delete(nil) # data providers that can not be on this list return a category name of nil, so we remove them
+    grouped_options.to_a
   end
 
   # Note: the following methods should all be part of one of the subclasses of DataProvider, probably.

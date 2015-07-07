@@ -322,27 +322,11 @@ class UserfilesController < ApplicationController
       @previous_userfile, @next_userfile = neighbors
     end
 
-    begin
-      respond_to do |format|
-        format.html
-        format.xml  { render :xml  => @userfile }
-        format.json { render :json => @userfile }
-      end
-    rescue ActionView::Template::Error => e
-      e = e.original_exception
-      raise e unless e.is_a?(CbrainPluginRenderError)
-      exception = e.original_exception
-
-      raise exception unless Rails.env == 'production'
-      ExceptionLog.log_exception(exception, current_user, request)
-      Message.send_message(current_user,
-        :message_type => 'error',
-        :header => "Could not show #{@userfile.name}",
-        :description => "An internal error occured when trying to show #{@userfile.name}."
-      )
-
-      redirect_to :action => :index
-   end
+    respond_to do |format|
+      format.html
+      format.xml  { render :xml  => @userfile }
+      format.json { render :json => @userfile }
+    end
   end
 
   def new #:nodoc:
@@ -411,7 +395,7 @@ class UserfilesController < ApplicationController
   #            no files nested within directories will be extracted
   #            (the +collection+ option has no such limitations).
   def create #:nodoc:
-
+    
     flash[:error]     ||= ""
     flash[:notice]    ||= ""
     params[:userfile] ||= {}
@@ -459,14 +443,13 @@ class UserfilesController < ApplicationController
                      :tag_ids          => params[:tags]
                    )
                  )
-
-      if ! userfile.save
+      
+      if !userfile.save
         flash[:error]  += "File '#{basename}' could not be added.\n"
         userfile.errors.each do |field, error|
           flash[:error] += "#{field.to_s.capitalize} #{error}.\n"
         end
         respond_to do |format|
-          format.html { redirect_to redirect_path }
           format.json { render :json  => flash[:error], :status  => :unprocessable_entity}
         end
         return
@@ -618,7 +601,7 @@ class UserfilesController < ApplicationController
       @userfile.group_id   = new_group_id if current_user.available_groups.where(:id => new_group_id).first
       @userfile            = @userfile.class_update
 
-      if @userfile.save_with_logging(current_user, %w( group_writable num_files format_source_id parent_id hidden ) )
+      if @userfile.save_with_logging(current_user, %w( group_writable num_files parent_id hidden ) )
         if new_name != old_name
           @userfile.provider_rename(new_name)
           @userfile.addlog("Renamed by #{current_user.login}: #{old_name} -> #{new_name}")
@@ -1107,7 +1090,23 @@ class UserfilesController < ApplicationController
     end
 
     # Sync all files
-    userfiles_list.each { |u| u.sync_to_cache rescue true }
+    failed_list = {}
+    userfiles_list.each do |userfile|
+      begin
+        userfile.sync_to_cache
+      rescue => e
+        (failed_list[e.message] ||= []) << userfile
+      end
+    end
+    if failed_list.present?
+      error_message_sender("Error when syncing file(s)", failed_list);
+      respond_to do |format|
+          format.html { redirect_to :action => :index, :format =>  request.format.to_sym }
+          format.json { render :json => { :error => flash[:error] } }
+      end
+      return
+    end
+
     # When sending a single file, just throw it at the browser.
     if userfiles_list.size == 1 && userfiles_list[0].is_a?(SingleFile)
       userfile = userfiles_list[0]
@@ -1270,6 +1269,9 @@ class UserfilesController < ApplicationController
   # abcd/*  ->  abcd/CONTENT.tar.gz
   # On the an Database archived FileCollection:
   # "abcd"  ->  "abcd" with 'archived' attribute set to true
+  #
+  # Also handles unarchiving TarArchives, just like create's
+  # :archive => 'collection' option.
   def archive_management
     filelist    = params[:file_ids] || []
 
@@ -1277,8 +1279,8 @@ class UserfilesController < ApplicationController
     userfiles        = []
     skipped_messages = {}
     Userfile.find_accessible_by_user(filelist, current_user, :access_requested => :write).each do |userfile|
-      unless userfile.is_a?(FileCollection)
-        (skipped_messages["Not a FileCollection"] ||= []) << userfile
+      unless userfile.is_a?(FileCollection) || userfile.is_a?(TarArchive)
+        (skipped_messages["Not a FileCollection or TarArchive"] ||= []) << userfile
         next
       end
 
@@ -1308,13 +1310,29 @@ class UserfilesController < ApplicationController
       failed_list  = {}
 
       userfiles.each_with_index do |userfile,i|
-        if userfile.archived?
+        if userfile.is_a?(TarArchive)
+          $0 = "UnarchiveFile ID=#{userfile.id} #{i+1}/#{userfiles.size}\0"
+
+          basename = userfile.name.split('.')[0]
+          if current_user.userfiles.exists?(:name => basename, :data_provider_id => collection.data_provider_id)
+            error_message = "Collection '#{collection.name}' already exists."
+            break
+          end
+
+          collection      = userfile.dup.becomes(FileCollection)
+          collection.name = basename
+
+          userfile.sync_to_cache
+          collection.extract_collection_from_archive_file(userfile.cache_full_path.to_s)
+          userfile.destroy
+        elsif userfile.archived?
           $0 = "UnarchiveFile ID=#{userfile.id} #{i+1}/#{userfiles.size}\0"
           error_message = userfile.provider_unarchive
         else
           $0 = "ArchiveFile ID=#{userfile.id} #{i+1}/#{userfiles.size}\0"
           error_message = userfile.provider_archive
         end
+
         if error_message.blank?
           success_list << userfile
         else
@@ -1621,9 +1639,6 @@ class UserfilesController < ApplicationController
     unless filters["view_hidden"] == 'on'
       header_scope = header_scope.where( :hidden => false ) # show only the non-hidden files
     end
-
-    # The userfile index only show and count the main files, not their subformats.
-    header_scope = header_scope.where( :format_source_id => nil )
 
     header_scope
   end

@@ -337,6 +337,57 @@ class ClusterTask < CbrainTask
     true
   end
 
+  # Make a given +userfile+ available to the task
+  # for processing at +file_path+, which is a relative
+  # path inside the work directory of the task.
+  # For example, to access the userfile with ID 6 at
+  # <workdir>/mincfiles/input.mnc, do:
+  #
+  #     make_available(6, "mincfiles/input.mnc")
+  #
+  # If +file_path+ ends with a slash (/), the file's name
+  # will be appended to form a valid file path:
+  #
+  #     make_available(6, "mincfiles/")
+  #
+  # Will make userfile with ID 6 available at
+  # <workdir>/mincfiles/<name of userfile with ID 6>
+  #
+  # +userfile+ can either be an ID or an userfile
+  # object. Note that just like safe_symlink, this method
+  # will silently replace an existing symlink at +file_path+
+  def make_available(userfile, file_path)
+    cb_error "File path argument must be relative" if
+      file_path.blank? || file_path.to_s =~ /^\//
+
+    # Fetch and sync the requested userfile
+    userfile      = Userfile.find(userfile) unless userfile.is_a?(Userfile)
+    userfile.sync_to_cache
+
+    # Compute the final absolute path to the target file symlink
+    full_path     = Pathname.new("#{self.full_cluster_workdir}/#{file_path}")
+    full_path    += userfile.name if file_path.to_s.end_with?("/")
+
+    # Pathname objects for the userfile and bourreau directories
+    workdir_path  = Pathname.new(self.cluster_shared_dir)
+    dp_cache_path = Pathname.new(self.bourreau.dp_cache_dir)
+    userfile_path = Pathname.new(userfile.cache_full_path)
+
+    # Figure out the two parts of the new symlink target; from file_path to
+    # the DP cache symlink, and from the DP symlink to the userfile
+    to_dp_syml    = workdir_path.relative_path_from(full_path.dirname) + DataProvider::DP_CACHE_SYML
+    to_cached     = userfile_path.relative_path_from(dp_cache_path)
+
+    # Make sure the directory exists and there is no symlink already there
+    FileUtils.mkpath(full_path.dirname) unless Dir.exists?(full_path.dirname)
+    File.unlink(full_path) if File.symlink?(full_path.to_s)
+
+    # Create the symlink
+    Dir.chdir(self.full_cluster_workdir) do
+      File.symlink((to_dp_syml + to_cached).to_s, file_path.to_s)
+    end
+  end
+
   # Returns true if +path+ points to a file or
   # directory that is inside the work directory
   # of the task. +path+ can be absolute or relative.
@@ -1374,6 +1425,7 @@ class ClusterTask < CbrainTask
     end
   end
 
+  
   # Submit the actual job request to the cluster management software.
   # Expects that the WD has already been changed.
   def submit_cluster_job
@@ -1419,7 +1471,7 @@ class ClusterTask < CbrainTask
 
 # CbrainTask '#{self.name}' commands section
 
-#{commands.join("\n")}
+#{self.use_docker? ? self.docker_commands : commands.join("\n")}
 
     QSUB_SCRIPT
     qsubfile = self.qsub_script_basename
@@ -1577,7 +1629,27 @@ class ClusterTask < CbrainTask
     return nil
   end
 
+  def use_docker?
+    return (self.tool_config.docker_image and self.tool_config.docker_image != "")
+  end
+  
+  # Returns the command line(s) associated with the task, wrapped in a Docker call if a Docker image has to be used.
+  def docker_commands
+    commands = self.cluster_commands  
+    commands_joined=commands.join("\n");
 
+    cache_dir=RemoteResource.current_resource.dp_cache_dir;
+    task_dir=self.bourreau.cms_shared_dir;
+    docker_commands = "cat << DOCKERJOB > .dockerjob.sh
+#!/bin/bash\n
+#{commands_joined}\n
+DOCKERJOB\n
+chmod 755 ./.dockerjob.sh\n
+docker run --rm -v $PWD:/cbrain-script -v #{cache_dir}:#{cache_dir} -v #{task_dir}:#{task_dir} -w /cbrain-script #{self.tool_config.docker_image} /cbrain-script/.dockerjob.sh \n
+"
+    return docker_commands
+  end
+  
 
   ##################################################################
   # Lifecycle hooks

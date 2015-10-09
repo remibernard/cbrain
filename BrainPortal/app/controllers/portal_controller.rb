@@ -51,9 +51,10 @@ class PortalController < ApplicationController
       @active_users = CbrainSession.active_users
       @active_users.unshift(current_user) unless @active_users.include?(current_user)
       if request.post?
-        unless params[:session_clear].blank?
-          CbrainSession.session_class.where(["updated_at < ?", params[:session_clear].to_i.seconds.ago]).delete_all
-        end
+        CbrainSession.clean_sessions
+        CbrainSession.purge_sessions(params[:session_clear].to_i.seconds.ago) unless
+          params[:session_clear].blank?
+
         if params[:lock_portal] == "lock"
           BrainPortal.current_resource.lock!
           BrainPortal.current_resource.addlog("User #{current_user.login} locked this portal.")
@@ -68,9 +69,6 @@ class PortalController < ApplicationController
           flash.now[:error] = ""
         end
       end
-    #elsif current_user.has_role? :site_manager
-    #  @active_users = CbrainSession.active_users.where( :site_id  => current_user.site_id )
-    #  @active_users.unshift(current_user) unless @active_users.include?(current_user)
     end
 
     bourreau_ids = Bourreau.find_all_accessible_by_user(current_user).raw_first_column("remote_resources.id")
@@ -142,7 +140,7 @@ class PortalController < ApplicationController
       found_ctrl = nil
       found_ms   = 0
 
-      (log.split("\n",num_lines+10) + [ "\n" ]).each do |line|
+      (log.split("\n") + [ "\n" ]).each do |line|
         next unless line
         next unless line =~ /^Started (\S+) "\/(\w*)/ || ! paragraph.empty?
 
@@ -168,7 +166,7 @@ class PortalController < ApplicationController
       end
       log = filtlogs.join("\n")
     else
-      log.split("\n",num_lines+10).each do |line|
+      log.split("\n").each do |line|
         if line =~ /^User: (\S+)/
           found_user = Regexp.last_match[1]
           @user_counts[found_user] += 1
@@ -240,7 +238,7 @@ class PortalController < ApplicationController
     row_type        = params[:row_type]   || ""
     col_type        = params[:col_type]   || ""
     submit          = extract_params_key([ :generate, :refresh, :flip ], "look")
-    date_filtration = params[:date_range] || {}
+    date_filtering = params[:date_range] || {}
 
     if submit == :flip
       params[:row_type] = col_type
@@ -278,9 +276,9 @@ class PortalController < ApplicationController
       return # with false value for @table_ok
     end
 
-    #date_filtration verification
-    error_mess = check_filter_date(date_filtration["date_attribute"], date_filtration["absolute_or_relative_from"], date_filtration["absolute_or_relative_to"],
-                                   date_filtration["absolute_from"], date_filtration["absolute_to"], date_filtration["relative_from"], date_filtration["relative_to"])
+    #date_filtering verification
+    error_mess = check_filter_date(date_filtering["date_attribute"], date_filtering["absolute_or_relative_from"], date_filtering["absolute_or_relative_to"],
+                                   date_filtering["absolute_from"], date_filtering["absolute_to"], date_filtering["relative_from"], date_filtering["relative_to"])
     if error_mess.present?
       flash.now[:error] = "#{error_mess}"
       return
@@ -310,11 +308,11 @@ class PortalController < ApplicationController
       @filter_fixed[att.to_s] = val
     end
 
-    # Add date filtration
-    mode_is_absolute_from = date_filtration["absolute_or_relative_from"] == "absolute" ? true : false
-    mode_is_absolute_to   = date_filtration["absolute_or_relative_to"]   == "absolute" ? true : false
+    # Add date filtering
+    mode_is_absolute_from = date_filtering["absolute_or_relative_from"] == "absolute" ? true : false
+    mode_is_absolute_to   = date_filtering["absolute_or_relative_to"]   == "absolute" ? true : false
     table_content_scope = add_time_condition_to_scope(table_content_scope, table_name, mode_is_absolute_from , mode_is_absolute_to,
-        date_filtration["absolute_from"], date_filtration["absolute_to"], date_filtration["relative_from"], date_filtration["relative_to"], date_filtration["date_attribute"])
+        date_filtering["absolute_from"], date_filtering["absolute_to"], date_filtering["relative_from"], date_filtering["relative_to"], date_filtering["date_attribute"])
 
     # Compute content fetcher
     table_ops = table_op.split(/\W+/).reject { |x| x.blank? }.map { |x| x.to_sym } # 'sum(size)' => [ :sum, :size ]
@@ -356,6 +354,15 @@ class PortalController < ApplicationController
     @filter_row_key    = row_type
     @filter_col_key    = col_type
     @filter_show_proc  = (table_op =~ /sum.*size/) ? (Proc.new { |vector| colored_pretty_size(vector[0]) }) : nil
+  end
+
+  # This action searches among all sorts of models for IDs or strings,
+  # and reports links to the matches found.
+  def search
+    @search  = params[:search]
+    @limit   = 20 # used by interface only
+
+    @results = @search.present? ? ModelsReport.search_for_token(@search, current_user) : {}
   end
 
   private

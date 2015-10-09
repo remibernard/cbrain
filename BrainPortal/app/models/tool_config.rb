@@ -48,7 +48,7 @@ class ToolConfig < ActiveRecord::Base
   # must be unique per pair [tool, server]
   validates       :version_name,
                   :presence   => true,
-                  :format     => { with: /^\w[\w\.\-\:\@]+$/ , message: "must begin with alphanum, and can contain only alphanums, '.', '-', '_', ':' and '@'" },
+                  :format     => { with: /^\w[\w\.\-\:\@]*$/ , message: "must begin with alphanum, and can contain only alphanums, '.', '-', '_', ':' and '@'" },
                   :uniqueness => { :scope => [ :tool_id, :bourreau_id ], message: "must be unique per pair [tool, server]" },
                   :if         => :applies_to_bourreau_and_tool?
 
@@ -56,7 +56,7 @@ class ToolConfig < ActiveRecord::Base
   cb_scope        :global_for_bourreaux , where( { :tool_id => nil } )
   cb_scope        :specific_versions    , where( "bourreau_id is not null and tool_id is not null" )
 
-  attr_accessible :version_name, :description, :tool_id, :bourreau_id, :env_array, :script_prologue, :group_id, :ncpus, :docker_image
+  attr_accessible :version_name, :description, :tool_id, :bourreau_id, :env_array, :script_prologue, :group_id, :ncpus, :docker_image, :extra_qsub_args
 
   # CBRAIN extension
   force_text_attribute_encoding 'UTF-8', :description, :version_name

@@ -117,7 +117,7 @@ class RemoteResource < ActiveRecord::Base
                         :time_zone, :site_url_prefix, :dp_cache_dir, :dp_ignore_patterns, :cms_class,
                         :cms_default_queue, :cms_extra_qsub_args, :cms_shared_dir, :workers_instances,
                         :workers_chk_time, :workers_log_to, :workers_verbose, :help_url, :rr_timeout, :proxied_host,
-                        :spaced_dp_ignore_patterns, :license_agreements, :support_email, :system_from_email, :external_status_page_url
+                        :spaced_dp_ignore_patterns, :license_agreements, :support_email, :system_from_email, :external_status_page_url, :docker_executable_name
 
 
 
@@ -883,8 +883,9 @@ class RemoteResource < ActiveRecord::Base
     return true if last_update && last_update > 30.seconds.ago
     CBRAIN.spawn_with_active_records(:admin, "DP Check") do
       dp_stats = {}
-      dp_ids.each do |dp_id|
+      dp_ids.each_with_index do |dp_id,idx|
         dp  = DataProvider.find_by_id(dp_id)
+        $0 = "DP Check #{idx+1}/#{dp_ids.size}: #{dp.try(:name) || "UnknownDP"}\0\0\0\0"
         if ! dp
           stat = "notexist"
         elsif ! dp.online?

@@ -20,6 +20,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+require 'ipaddr'
+
 # Sesssions controller for the BrainPortal interface
 # This controller handles the login/logout function of the site.
 #
@@ -76,7 +78,7 @@ class SessionsController < ApplicationController
     current_session.deactivate if current_session
     current_user.addlog("Logged out") if current_user
     portal.addlog("User #{current_user.login} logged out") if current_user
-    current_session.clear_data!
+    current_session.clear
     #reset_session
     flash[:notice] = "You have been logged out."
 
@@ -183,17 +185,31 @@ class SessionsController < ApplicationController
   end
 
   def create_from_user(user) #:nodoc:
-    self.current_user = user
-    portal = BrainPortal.current_resource
-
     # Bad login/password?
-    if !logged_in?
+    unless user
       flash.now[:error] = 'Invalid user name or password.'
       Kernel.sleep 3 # Annoying, as it blocks the instance for other users too. Sigh.
 
+      self.current_user = nil
       auth_failed
       return
     end
+
+    # Not in IP whitelist?
+    whitelist = (user.meta[:ip_whitelist] || '')
+      .split(',')
+      .map { |ip| IPAddr.new(ip.strip) rescue nil }
+      .reject(&:blank?)
+    if whitelist.present? && ! whitelist.any? { |ip| ip.include?request.remote_ip }
+      flash.now[:error] = 'Untrusted source IP address.'
+
+      self.current_user = nil
+      auth_failed
+      return
+    end
+
+    self.current_user = user
+    portal = BrainPortal.current_resource
 
     # Check if the user or the portal is locked
     locked_message  = portal_or_account_locked?(portal)
@@ -235,7 +251,7 @@ class SessionsController < ApplicationController
     current_session.activate
     user   = current_user
 
-    current_session.load_preferences_for_user(user)
+    current_session.load_preferences
 
     # Record the best guess for browser's remote host name
     reqenv  = request.env
@@ -276,6 +292,7 @@ class SessionsController < ApplicationController
     authentication_mechanism = user[:authentication_mechanism] || "(Unknown)" # should be 'password' || 'Persona'
     user.addlog("Logged in with #{authentication_mechanism} from #{pretty_host} using #{pretty_brow}")
     portal.addlog("User #{user.login} logged in with #{authentication_mechanism} from #{pretty_host} using #{pretty_brow}")
+    user.update_attribute(:last_connected_at, Time.now)
 
     # Admin users start with some differences in behavior
     if user.has_role?(:admin_user)

@@ -20,6 +20,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+require 'ipaddr'
+
 #RESTful controller for the User resource.
 class UsersController < ApplicationController
 
@@ -33,28 +35,30 @@ class UsersController < ApplicationController
   API_HIDDEN_ATTRIBUTES = [ :salt, :crypted_password ]
 
   def index #:nodoc:
-    @filter_params["sort_hash"]["order"] ||= 'users.full_name'
+    @scope = scope_from_session('users')
+    scope_default_order(@scope, 'full_name')
 
-    sort_order = "#{@filter_params["sort_hash"]["order"]} #{@filter_params["sort_hash"]["dir"]}"
+    params[:name_like].strip! if params[:name_like]
+    scope_filter_from_params(@scope, :name_like, {
+      :attribute => 'full_name',
+      :operator  => 'match'
+    })
 
-    @header_scope = current_user.available_users
+    @base_scope = current_user.available_users.includes(:groups, :site)
+    @view_scope = @scope.apply(@base_scope)
 
-    @filtered_scope = base_filtered_scope @header_scope.includes( [:groups, :site] ).order( sort_order )
-    @users          = base_sorted_scope @filtered_scope
+    @scope.pagination ||= Scope::Pagination.from_hash({ :per_page => 50 })
+    @users = @scope.pagination.apply(@view_scope) if
+      [:html, :js].include?(request.format.to_sym)
 
-    # Precompute file and task counts.
-    @users_file_counts=Userfile.where(:user_id => @users.map(&:id)).group(:user_id).count
-    @users_task_counts=CbrainTask.real_tasks.where(:user_id => @users.map(&:id)).group(:user_id).count
+    # Precompute file, task and locked/unlocked counts.
+    @users_file_counts  = Userfile.where(:user_id => @view_scope).group(:user_id).count
+    @users_task_counts  = CbrainTask.real_tasks.where(:user_id => @view_scope).group(:user_id).count
+    @locked_users_count   = @view_scope.where(:account_locked => true).count
+    @unlocked_users_count = @view_scope.count - @locked_users_count
 
-    # For Pagination
-    unless [:html, :js].include?(request.format.to_sym)
-      @per_page = 999_999_999
-    end
-
-    # Turn the array ordered_real into the final paginated collection
-    @users = @users.paginate(:page => @current_page, :per_page => @per_page)
-
-    current_session.save_preferences_for_user(current_user, :users, :per_page)
+    scope_to_session(@scope)
+    current_session.save_preferences
 
     respond_to do |format|
       format.html # index.html.erb
@@ -190,6 +194,12 @@ class UsersController < ApplicationController
       params[:user][:time_zone] = nil # change "" to nil
     end
 
+    # IP whitelist
+    params[:meta][:ip_whitelist].split(',').each do |ip|
+      IPAddr.new(ip.strip) rescue cb_error "Invalid whitelist IP address: #{ip}"
+    end if
+      params[:meta] && params[:meta][:ip_whitelist]
+
     # For logging
     original_group_ids = @user.group_ids
 
@@ -212,7 +222,7 @@ class UsersController < ApplicationController
       if @user.save_with_logging(current_user, %w( full_name login email role city country account_locked ) )
         @user.reload
         @user.addlog_object_list_updated("Groups", Group, original_group_ids, @user.group_ids, current_user)
-        add_meta_data_from_form(@user, [:pref_bourreau_id, :pref_data_provider_id])
+        add_meta_data_from_form(@user, [:pref_bourreau_id, :pref_data_provider_id, :ip_whitelist])
         flash[:notice] = "User #{@user.login} was successfully updated."
         format.html { redirect_to :action => :show }
         format.xml { head :ok }
@@ -271,7 +281,7 @@ class UsersController < ApplicationController
     myportal.addlog("Admin user '#{current_user.login}' switching to user '#{@user.login}'")
     current_user.addlog("Switching to user '#{@user.login}'")
     @user.addlog("Switched from user '#{current_user.login}'")
-    current_session.clear_data!
+    current_session.clear
     self.current_user = @user
     current_session[:user_id] = @user.id
 

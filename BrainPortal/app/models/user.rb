@@ -111,8 +111,6 @@ class User < ActiveRecord::Base
 
   force_text_attribute_encoding 'UTF-8', :full_name, :city, :country
 
-  cb_scope                   :name_like, lambda { |n| where("users.login LIKE ? OR users.full_name LIKE ?", "%#{n}%", "%#{n}%") }
-
   # Returns the admin user
   def self.admin
     @@admin ||= self.find_by_login("admin")
@@ -183,23 +181,22 @@ class User < ActiveRecord::Base
 
   # Authenticates a user by their login name and unencrypted password. Returns the user or nil.
   def self.authenticate(login, password)
-    u = find_by_login(login) rescue nil # need to get the salt
+    u = find_by_login(login) rescue nil
     return nil unless u && u.authenticated?(password)
-    u.last_connected_at = Time.now
-    u.save
     u
   end
 
   def authenticated?(password) #:nodoc:
-    # Changed encryption type if crypted_password is in sha1or in pbkdf2
     plain_crypted_password = crypted_password.sub(/^\w+:/,"")
+    # Changed encryption type if crypted_password is in sha1 or in pbkdf2 (old convention)
     if (password_type(crypted_password) == :sha1   && plain_crypted_password == encrypt_in_sha1(password)) ||
        (password_type(crypted_password) == :pbkdf2 && plain_crypted_password == encrypt_in_pbkdf2(password))
-      self.password = password
-      self.encrypt_password # explicit call to compute the crypted password (a real rails attribute)
-      self.password   = nil # zap pseudo-attribute for security
-      self.save             # Save the new User record; as a side effect of the callback 'encrypt_password' the encrypted password will be updated
+      self.password = password # not a real attribute; only used by encrypt_password() below
+      self.encrypt_password()  # explicit call to compute the crypted password (stored as a real rails attribute)
+      self.password   = nil    # zap pseudo-attribute for security
+      self.save
       true
+    # This is now the default CBRAIN encryption mode
     elsif password_type(crypted_password) == :pbkdf2_sha1 # Just check that it matches the PBKDF2 with digest SHA1
       plain_crypted_password == encrypt_in_pbkdf2_sha1(password)
     else
@@ -292,7 +289,7 @@ class User < ActiveRecord::Base
 
   # Find the tools that this user has access to.
   def available_tools
-    cb_error "#available_tools called from User base class! Method must be implement in a subclass."
+    cb_error "#available_tools called from User base class! Method must be implemented in a subclass."
   end
 
   # Find the scientific tools that this user has access to.
@@ -307,7 +304,7 @@ class User < ActiveRecord::Base
 
   # Returns the list of groups available to this user based on role.
   def available_groups
-    cb_error "#available_groups called from User base class! Method must be implement in a subclass."
+    cb_error "#available_groups called from User base class! Method must be implemented in a subclass."
   end
 
   # Returns the list of tags available to this user.
@@ -317,12 +314,17 @@ class User < ActiveRecord::Base
 
   # Returns the list of tasks available to this user.
   def available_tasks
-    cb_error "#available_tasks called from User base class! Method must be implement in a subclass."
+    cb_error "#available_tasks called from User base class! Method must be implemented in a subclass."
   end
 
   # Return the list of users under this user's control based on role.
   def available_users
-    cb_error "#available_users called from User base class! Method must be implement in a subclass."
+    cb_error "#available_users called from User base class! Method must be implemented in a subclass."
+  end
+
+  # Return the list of sites accessible to the user
+  def accessible_sites
+    cb_error "#accessible_sites called from User base class! Method must be implemented in a subclass."
   end
 
   # Can this user be accessed by +user+?

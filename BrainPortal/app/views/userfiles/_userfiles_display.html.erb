@@ -30,30 +30,30 @@
 %>
 
 <div class="pagination">
-  <% if current_session[:persistent_userfiles].present? %>
-    <div class="pagination_left_side">
-      <blink>
-        <%=
-          html_colorize(
-            "(#{pluralize(current_session[:persistent_userfiles].size," file")} persistently selected)"
-          )
-        %>
-      </blink>
+  <div class="pagination_left_side">
+    <div id="persistent-selection">
+      <span class="psel-count">23</span>
+      <span class="psel-text">files currently selected</span>
+      (<span class="psel-all">select all</span>,
+      <span class="psel-clear">clear</span>)
     </div>
-  <% end %>
+  </div>
   <div class="page_links">
     (
       <%
         show_total = lambda do |total, name, icon|
+          puts_green name
+          puts_red total.inspect
           (", #{total} #{name} " + icon).html_safe if
             total.present? && (total.is_a?(String) || total > 0)
         end
       %>
-      <%= pluralize(@userfiles_total," entry") %> ,
+      <%= pluralize(@userfiles_total," entry") %>
+      <span class="own_files">(own files only)</span>,
       <%= colored_pretty_size(@userfiles_total_size) %>
       <%= show_total.(@hidden_total,    'hidden',    hidden_icon) %>
       <%= show_total.(@archived_total,  'archived',  archived_icon) %>
-      <%= show_total.(@immutable_total, 'immutable', immutable_icon) %>
+      <%= show_total.(@immutable_total, 'locked', immutable_icon) %>
     )
   </div>
   <div class="pagination_right_side">

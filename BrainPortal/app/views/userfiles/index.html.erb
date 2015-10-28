@@ -34,19 +34,943 @@
 <% end %>
 
 <div id="userfiles_menus_and_filelist">
-
   <%= multi_form_tag(:method => :post, "data-type"  => "script") do %>
-      
-      <div class="index_block">
-        <%= render :partial => "userfiles/file_menu" %>
-        
-        <div id="userfiles_display">
-          <%= render :partial => 'userfiles_display' %>
+    <div class="index_block">
+      <div id="menu-bar">
+        <div id="static-actions">
+          <span id="launch-btn" class="act-btn" data-icon="ui-icon-play">Launch</span>
+          <span id="upload-btn" class="act-btn" data-icon="ui-icon-arrowthick-1-n">Upload</span>
         </div>
-        
-        <%  sync_statuses = [ "InSync", "ProvNewer", "CacheNewer", "Corrupted", "ToCache", "ToProvider" ] %>
-        <%= center_legend("Synchronization symbols:", sync_statuses.map { |s| [ status_html_symbol(s), s ] } ) %>
-      </div>
-  <% end %> <!-- form -->
-</div> <!-- cell #1 -->
+        <div id="dynamic-actions" class="hidden">
+          <span id="down-btn" class="act-btn" data-icon="ui-icon-arrowthickstop-1-s">Download</span>
+          <span id="copy-btn" class="act-btn" data-icon="ui-icon-copy">Copy</span>
+          <span id="move-btn" class="act-btn" data-icon="ui-icon-arrowreturnthick-1-e">Move</span>
+          <span id="ren-btn" class="act-btn" data-icon="ui-icon-pencil">Rename</span>
+          <span id="comp-btn" class="act-btn" data-icon="ui-icon-suitcase">Compress</span>
+          <span id="ucomp-btn" class="act-btn" data-icon="ui-icon-folder-open">Extract</span>
+          <span id="del-btn" class="act-btn" data-icon="ui-icon-trash">Delete</span>
+        </div>
+        <div id="menu-actions">
+          <span id="menu-btn" class="act-btn" data-icon="ui-icon-gear">More...</span>
+          <ul id="menu-list">
+            <li>
+              Custom filters
+              <span class="ui-icon ui-icon-zoomin"></span>
+              <ul>
+                <li id="filters-item">New filter<span class="ui-icon ui-icon-plus"></span></li>
+                <li>-</li>
+                <li><span class="act-icon ui-icon-pencil"></span>ReadyToArchive</li>
+                <li><span class="act-icon ui-icon-pencil"></span>ShouldCompress</li>
+                <li><span class="act-icon ui-icon-pencil"></span>OldBackups</li>
+                <li><span class="act-icon ui-icon-pencil"></span>MSB_20140206</li>
+                <li><span class="act-icon ui-icon-pencil"></span>MSB_20140706</li>
+                <li><span class="act-icon ui-icon-pencil"></span>MSB_20140806</li>
+                <li>-</li>
+                <li>Has no parent</li>
+                <li>Has no children</li>
+              </ul>
+            </li>
+            <li id="tag-item">Tags<span class="ui-icon ui-icon-tag"></span></li>
+            <li>-</li>
+            <li id="prop-item">Properties<span class="ui-icon ui-icon-document-b"></span></li>
+            <li id="sync-item">Synchronize<span class="ui-icon ui-icon-refresh"></span></li>
+            <li id="mnew-item">Mark as newer<span class="ui-icon ui-icon-flag"></span></li>
+            <li>-</li>
+            <li id="col-item">New collection<span class="ui-icon ui-icon-folder-collapsed"></span></li>
+            <li id="rel-item">Parent/child relationships<span class="ui-icon ui-icon-contact"></span></li>
+            <li>-</li>
+            <li id="exp-item">Export as CSV<span class="ui-icon ui-icon-extlink"></span></li>
+            <li>-</li>
+            <li id="vown-item">Show only my files<span class="ui-icon ui-icon-star"></span></li>
+            <li id="vhid-item">Show hidden files<span class="ui-icon ui-icon-note"></span></li>
+            <li id="vtree-item">Tree view<span class="ui-icon ui-icon-arrowreturnthick-1-s"></span></li>
+          </ul>
+        </div>
 
+        <script>
+        </script>
+      </div>
+
+      <div id="userfiles_display">
+        <%= render :partial => 'userfiles_display' %>
+      </div>
+
+      <%  sync_statuses = [ "InSync", "ProvNewer", "CacheNewer", "Corrupted", "ToCache", "ToProvider" ] %>
+      <%= center_legend("Synchronization symbols:", sync_statuses.map { |s| [ status_html_symbol(s), s ] } ) %>
+    </div>
+  <% end %>
+</div>
+
+<!-- * -->
+
+<% content_for :head do %>
+  <%= stylesheet_link_tag    'chosen.min' %>
+  <%= javascript_include_tag 'chosen.jquery.min' %>
+<% end %>
+
+<div id="upload-dialog" class="up-ovfl" title="Upload - Single file">
+  <form action="#" method="post">
+    <label for="up-file" class="dlg-fld-lbl">Upload</label>
+    <input id="up-file" class="dlg-fld" type="file" name="file" />
+    <span id="up-file-warn">&#9888; Too large! (&gt; 1 MB)</span>
+    <br />
+
+    <label for="up-dp" class="dlg-fld-lbl">To</label>
+    <select id="up-dp" class="dlg-fld" name="data_provider">
+      <optgroup label="CBRAIN Official Storage">
+        <option value="19">Chest</option>
+        <option value="15">Local 1</option>
+        <option value="7" disabled="true">Official_For_All (offline)</option>
+        <option value="20">Pile-o-paper</option>
+        <option value="10" disabled="true">Private_Netherfield (offline)</option>
+        <option value="11" disabled="true">Private_Pemberley (offline)</option>
+        <option value="17">Toaster</option>
+        <option value="18">Trash can</option>
+      </optgroup>
+      <optgroup label="User Storage">
+        <option value="22">Bacon</option>
+        <option value="8" disabled="true">Browsable_For_All (offline)</option>
+        <option value="23">Landfill</option>
+        <option value="24">Meh</option>
+        <option value="12" disabled="true">Private_Collins (offline)</option>
+        <option value="9" disabled="true">Private_Longbourne (offline)</option>
+        <option value="5">Remote 1</option>
+        <option value="6">Remote 2</option>
+        <option value="13">Remote 3</option>
+        <option value="14">Shared-Service</option>
+      </optgroup>
+    </select>
+    <%=
+      overlay_content_link('',
+        :id    => 'up-dp-help',
+        :class => 'ui-icon ui-icon-help',
+        :enclosing_element => 'span'
+      ) { data_providers_descriptions.html_safe }
+    %>
+    <br />
+
+    <label for="up-prj" class="dlg-fld-lbl">Project</label>
+    <select id="up-prj" class="dlg-fld"  name="userfile[group_id]">
+      <optgroup label="My Work Projects">
+        <option value="26">myhats</option>
+        <option value="27">mymusic</option>
+      </optgroup>
+      <optgroup label="Personal Work Projects of Caroline Bingley">
+        <option value="30">REVOLUTION</option>
+      </optgroup>
+      <optgroup label="Shared Work Projects">
+        <option value="23">dancers</option>
+      </optgroup>
+      <optgroup label="Empty Work Projects">
+        <option value="29">master</option>
+      </optgroup>
+      <optgroup label="Site Projects">
+        <option value="5">Longbourne (Hertfordshire)</option>
+        <option value="6">Netherfield Park (Hertfordshire)</option>
+        <option value="7">Pemberley (Devonshire)</option>
+      </optgroup>
+      <optgroup label="User Projects">
+        <option value="2" selected="selected">admin (CBRAIN Administrator)</option>
+        <option value="15">cabingley (Caroline Bingley)</option>
+        <option value="11">cbennet (Catherine Bennet)</option>
+        <option value="14">chbingley (Charles Bingley)</option>
+        <option value="19">chlucas (Charlotte Lucas)</option>
+        <option value="10">ebennet (Elizabeth Bennet)</option>
+        <option value="17">gedarcy (Georgiana Darcy)</option>
+        <option value="18">gewickham (George Wickham)</option>
+        <option value="9">jbennet (Jane Bennet)</option>
+        <option value="13">lbennet (Lydia Bennet)</option>
+        <option value="12">mbennet (Mary Bennet)</option>
+        <option value="8">mrbennet (Mr Bennet)</option>
+        <option value="16">mrdarcy (Mr Darcy)</option>
+        <option value="21">mrgardiner (Mr Gardiner)</option>
+        <option value="4">test (Test)</option>
+        <option value="20">wicollins (William Collins)</option>
+      </optgroup>
+      <optgroup label="Invisible Projects">
+        <option value="24">gentlemen</option>
+        <option value="25">ladies</option>
+        <option value="28">masters of the system</option>
+        <option value="22">wise people</option>
+      </optgroup>
+      <optgroup label="Everyone Projects">
+        <option value="1">everyone</option>
+      </optgroup>
+    </select>
+    <br />
+
+    <div id="up-ex-container">
+      <input id="up-ex" class="dlg-chk" type="checkbox" />
+      <label for="up-ex" class="dlg-chk-icon">
+        <span class="ui-icon ui-icon-check"></span>
+      </label>
+      <label for="up-ex" class="dlg-chk-lbl">Extract</label>
+      <br />
+      <div id="up-ex-mode">
+        <input id="up-mul" class="dlg-rad" type="radio" name="extract" value="multiple" checked="" />
+        <label for="up-mul" class="dlg-rad-icon">
+          <span class="round-icon"></span>
+        </label>
+        <label for="up-mul" class="dlg-rad-lbl">As multiple files</label>
+        <br />
+
+        <input id="up-col" class="dlg-rad" type="radio" name="extract" value="collection" />
+        <label for="up-col" class="dlg-rad-icon">
+          <span class="round-icon"></span>
+        </label>
+        <label for="up-col" class="dlg-rad-lbl">As a single collection</label>
+      </div>
+    </div>
+    <br />
+
+    <input id="up-opt-toggle" type="checkbox" />
+    <label id="up-opt-icon" for="up-opt-toggle">
+      <span class="ui-icon up-closed ui-icon-carat-1-e"></span>
+      <span class="ui-icon up-open ui-icon-carat-1-s"></span>
+    </label>
+    <label id="up-opt-lbl" for="up-opt-toggle">Advanced options...</label>
+    <div id="up-opt">
+      <label for="up-tag" class="dlg-fld-lbl">Tags</label>
+      <select id="up-tag" class="dlg-fld" name="tags[]" multiple="multiple">
+        <option value="1">A</option>
+        <option value="2">B</option>
+        <option value="3">C</option>
+      </select>
+      <br /><br />
+
+      <label for="up-type" class="dlg-fld-lbl">Detect as</label>
+      <select id="up-type" class="dlg-fld" name="file_type">
+        <option value="SingleFile">Single File</option>
+        <option value="AudioFile">&nbsp;&nbsp;Audio File</option>
+        <option value="Mp3AudioFile">&nbsp;&nbsp;&nbsp;&nbsp;MP3 Audio File</option>
+        <option value="DicomFile">&nbsp;&nbsp;Dicom File</option>
+        <option value="FSLDesignFile">&nbsp;&nbsp;FSL Design File</option>
+        <option value="ImageFile">&nbsp;&nbsp;Image File</option>
+        <option value="MgzFile">&nbsp;&nbsp;MGZ Structural File</option>
+        <option value="MincFile">&nbsp;&nbsp;Minc File</option>
+        <option value="Minc1File">&nbsp;&nbsp;&nbsp;&nbsp;Minc1 File</option>
+        <option value="Minc2File">&nbsp;&nbsp;&nbsp;&nbsp;Minc2 File</option>
+        <option value="NiftiFile">&nbsp;&nbsp;NIfTI file</option>
+        <option value="FunctionalNiftiFile">&nbsp;&nbsp;&nbsp;&nbsp;NIfTI file (functional)</option>
+        <option value="StructuralNiftiFile">&nbsp;&nbsp;&nbsp;&nbsp;NIfTI file (structural)</option>
+        <option value="TarArchive">&nbsp;&nbsp;Tar Archive</option>
+        <option value="TaskWorkdirArchive">&nbsp;&nbsp;&nbsp;&nbsp;Task Workdir Archive</option>
+        <option value="TextFile">&nbsp;&nbsp;Text File</option>
+        <option value="BashSourceFile">&nbsp;&nbsp;&nbsp;&nbsp;Bash script</option>
+        <option value="CSVFile">&nbsp;&nbsp;&nbsp;&nbsp;CSV File</option>
+        <option value="TsvFile">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;TSV File</option>
+        <option value="DatFile">&nbsp;&nbsp;&nbsp;&nbsp;Dat File</option>
+        <option value="DotGraphFile">&nbsp;&nbsp;&nbsp;&nbsp;DOT graph file</option>
+        <option value="FslExchangeabilityFile">&nbsp;&nbsp;&nbsp;&nbsp;Exchangeability block label File</option>
+        <option value="FslFContrastFile">&nbsp;&nbsp;&nbsp;&nbsp;f contrast File</option>
+        <option value="FslMatrixFile">&nbsp;&nbsp;&nbsp;&nbsp;Design matrix File</option>
+        <option value="FslTContrastFile">&nbsp;&nbsp;&nbsp;&nbsp;t contrast File</option>
+        <option value="LogFile">&nbsp;&nbsp;&nbsp;&nbsp;Log File</option>
+        <option value="MatlabScript">&nbsp;&nbsp;&nbsp;&nbsp;Matlab Script</option>
+        <option value="PerlSourceFile">&nbsp;&nbsp;&nbsp;&nbsp;Perl script</option>
+        <option value="RubySourceFile">&nbsp;&nbsp;&nbsp;&nbsp;Ruby source file</option>
+        <option value="XMLFile">&nbsp;&nbsp;&nbsp;&nbsp;XML File</option>
+        <option value="YAMLFile">&nbsp;&nbsp;&nbsp;&nbsp;YAML File</option>
+        <option value="VideoFile">&nbsp;&nbsp;Video File</option>
+        <option value="Mp4VideoFile">&nbsp;&nbsp;&nbsp;&nbsp;MP4 Video File</option>
+        <option value="FileCollection">File Collection</option>
+        <option value="CivetOutput">&nbsp;&nbsp;Civet Output</option>
+        <option value="CivetStudy">&nbsp;&nbsp;Civet Study</option>
+        <option value="DicomCollection">&nbsp;&nbsp;DICOM file collection</option>
+        <option value="FslDesignCollection">&nbsp;&nbsp;Fsl design collection</option>
+        <option value="FslFastOutput">&nbsp;&nbsp;FslFast Output</option>
+        <option value="FslFirstOutput">&nbsp;&nbsp;FslFirst Output</option>
+        <option value="FslMelodicOutput">&nbsp;&nbsp;FslMelodic Output</option>
+        <option value="LorisSubject">&nbsp;&nbsp;Loris Subject</option>
+        <option value="MincCollection">&nbsp;&nbsp;MINC file collection</option>
+        <option value="ReconAllOutput" disabled="true">&nbsp;&nbsp;Recon-all Output</option>
+        <option value="ReconAllBaseOutput">&nbsp;&nbsp;&nbsp;&nbsp;Recon-all Unbiased Base</option>
+        <option value="ReconAllCrossSectionalOutput">&nbsp;&nbsp;&nbsp;&nbsp;Recon-all Cross-Sectional Output</option>
+        <option value="ReconAllLongiOutput">&nbsp;&nbsp;&nbsp;&nbsp;Recon-all Longitunal Output</option>
+      </select>
+      <span id="up-type-auto">(autodetected)</span>
+      <span id="up-type-unknown">Unknown file type!</span>
+      <br />
+
+      <input id="up-shr" class="dlg-chk" type="checkbox" />
+      <label for="up-shr" class="dlg-chk-icon">
+        <span class="ui-icon ui-icon-check"></span>
+      </label>
+      <label for="up-shr" class="dlg-chk-lbl">
+        Allow modification by other project members
+      </label>
+    </div>
+  </form>
+</div>
+
+<div id="prop-dialog" title="File properties">
+  <form action="#" method="post">
+    <label for="pp-tag" class="dlg-fld-lbl">Tags</label>
+    <select id="pp-tag" class="dlg-fld" name="tags[]" multiple="multiple">
+      <option value="1">A</option>
+      <option value="2">B</option>
+      <option value="3">C</option>
+    </select>
+    <br /><br />
+
+    <label for="pp-prj" class="dlg-fld-lbl">Project</label>
+    <select id="pp-prj" class="dlg-fld"  name="userfile[group_id]">
+      <optgroup label="My Work Projects">
+        <option value="26">myhats</option>
+        <option value="27">mymusic</option>
+      </optgroup>
+      <optgroup label="Personal Work Projects of Caroline Bingley">
+        <option value="30">REVOLUTION</option>
+      </optgroup>
+      <optgroup label="Shared Work Projects">
+        <option value="23">dancers</option>
+      </optgroup>
+      <optgroup label="Empty Work Projects">
+        <option value="29">master</option>
+      </optgroup>
+      <optgroup label="Site Projects">
+        <option value="5">Longbourne (Hertfordshire)</option>
+        <option value="6">Netherfield Park (Hertfordshire)</option>
+        <option value="7">Pemberley (Devonshire)</option>
+      </optgroup>
+      <optgroup label="User Projects">
+        <option value="2" selected="selected">admin (CBRAIN Administrator)</option>
+        <option value="15">cabingley (Caroline Bingley)</option>
+        <option value="11">cbennet (Catherine Bennet)</option>
+        <option value="14">chbingley (Charles Bingley)</option>
+        <option value="19">chlucas (Charlotte Lucas)</option>
+        <option value="10">ebennet (Elizabeth Bennet)</option>
+        <option value="17">gedarcy (Georgiana Darcy)</option>
+        <option value="18">gewickham (George Wickham)</option>
+        <option value="9">jbennet (Jane Bennet)</option>
+        <option value="13">lbennet (Lydia Bennet)</option>
+        <option value="12">mbennet (Mary Bennet)</option>
+        <option value="8">mrbennet (Mr Bennet)</option>
+        <option value="16">mrdarcy (Mr Darcy)</option>
+        <option value="21">mrgardiner (Mr Gardiner)</option>
+        <option value="4">test (Test)</option>
+        <option value="20">wicollins (William Collins)</option>
+      </optgroup>
+      <optgroup label="Invisible Projects">
+        <option value="24">gentlemen</option>
+        <option value="25">ladies</option>
+        <option value="28">masters of the system</option>
+        <option value="22">wise people</option>
+      </optgroup>
+      <optgroup label="Everyone Projects">
+        <option value="1">everyone</option>
+      </optgroup>
+    </select>
+    <br />
+
+    <input id="pp-shr" class="dlg-chk" type="checkbox" />
+    <label for="pp-shr" class="dlg-chk-icon">
+      <span class="ui-icon ui-icon-check"></span>
+    </label>
+    <label for="pp-shr" class="dlg-chk-lbl">
+      Allow modification by other project members
+    </label>
+    <br />
+
+    <br />
+
+    <label for="pp-type" class="dlg-fld-lbl">Type</label>
+    <select id="pp-type" class="dlg-fld" name="file_type">
+      <option value="SingleFile">Single File</option>
+      <option value="AudioFile">&nbsp;&nbsp;Audio File</option>
+      <option value="Mp3AudioFile">&nbsp;&nbsp;&nbsp;&nbsp;MP3 Audio File</option>
+      <option value="DicomFile">&nbsp;&nbsp;Dicom File</option>
+      <option value="FSLDesignFile">&nbsp;&nbsp;FSL Design File</option>
+      <option value="ImageFile">&nbsp;&nbsp;Image File</option>
+      <option value="MgzFile">&nbsp;&nbsp;MGZ Structural File</option>
+      <option value="MincFile">&nbsp;&nbsp;Minc File</option>
+      <option value="Minc1File">&nbsp;&nbsp;&nbsp;&nbsp;Minc1 File</option>
+      <option value="Minc2File">&nbsp;&nbsp;&nbsp;&nbsp;Minc2 File</option>
+      <option value="NiftiFile">&nbsp;&nbsp;NIfTI file</option>
+      <option value="FunctionalNiftiFile">&nbsp;&nbsp;&nbsp;&nbsp;NIfTI file (functional)</option>
+      <option value="StructuralNiftiFile">&nbsp;&nbsp;&nbsp;&nbsp;NIfTI file (structural)</option>
+      <option value="TarArchive">&nbsp;&nbsp;Tar Archive</option>
+      <option value="TaskWorkdirArchive">&nbsp;&nbsp;&nbsp;&nbsp;Task Workdir Archive</option>
+      <option value="TextFile">&nbsp;&nbsp;Text File</option>
+      <option value="BashSourceFile">&nbsp;&nbsp;&nbsp;&nbsp;Bash script</option>
+      <option value="CSVFile">&nbsp;&nbsp;&nbsp;&nbsp;CSV File</option>
+      <option value="TsvFile">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;TSV File</option>
+      <option value="DatFile">&nbsp;&nbsp;&nbsp;&nbsp;Dat File</option>
+      <option value="DotGraphFile">&nbsp;&nbsp;&nbsp;&nbsp;DOT graph file</option>
+      <option value="FslExchangeabilityFile">&nbsp;&nbsp;&nbsp;&nbsp;Exchangeability block label File</option>
+      <option value="FslFContrastFile">&nbsp;&nbsp;&nbsp;&nbsp;f contrast File</option>
+      <option value="FslMatrixFile">&nbsp;&nbsp;&nbsp;&nbsp;Design matrix File</option>
+      <option value="FslTContrastFile">&nbsp;&nbsp;&nbsp;&nbsp;t contrast File</option>
+      <option value="LogFile">&nbsp;&nbsp;&nbsp;&nbsp;Log File</option>
+      <option value="MatlabScript">&nbsp;&nbsp;&nbsp;&nbsp;Matlab Script</option>
+      <option value="PerlSourceFile">&nbsp;&nbsp;&nbsp;&nbsp;Perl script</option>
+      <option value="RubySourceFile">&nbsp;&nbsp;&nbsp;&nbsp;Ruby source file</option>
+      <option value="XMLFile">&nbsp;&nbsp;&nbsp;&nbsp;XML File</option>
+      <option value="YAMLFile">&nbsp;&nbsp;&nbsp;&nbsp;YAML File</option>
+      <option value="VideoFile">&nbsp;&nbsp;Video File</option>
+      <option value="Mp4VideoFile">&nbsp;&nbsp;&nbsp;&nbsp;MP4 Video File</option>
+      <option value="FileCollection">File Collection</option>
+      <option value="CivetOutput">&nbsp;&nbsp;Civet Output</option>
+      <option value="CivetStudy">&nbsp;&nbsp;Civet Study</option>
+      <option value="DicomCollection">&nbsp;&nbsp;DICOM file collection</option>
+      <option value="FslDesignCollection">&nbsp;&nbsp;Fsl design collection</option>
+      <option value="FslFastOutput">&nbsp;&nbsp;FslFast Output</option>
+      <option value="FslFirstOutput">&nbsp;&nbsp;FslFirst Output</option>
+      <option value="FslMelodicOutput">&nbsp;&nbsp;FslMelodic Output</option>
+      <option value="LorisSubject">&nbsp;&nbsp;Loris Subject</option>
+      <option value="MincCollection">&nbsp;&nbsp;MINC file collection</option>
+      <option value="ReconAllOutput" disabled="true">&nbsp;&nbsp;Recon-all Output</option>
+      <option value="ReconAllBaseOutput">&nbsp;&nbsp;&nbsp;&nbsp;Recon-all Unbiased Base</option>
+      <option value="ReconAllCrossSectionalOutput">&nbsp;&nbsp;&nbsp;&nbsp;Recon-all Cross-Sectional Output</option>
+      <option value="ReconAllLongiOutput">&nbsp;&nbsp;&nbsp;&nbsp;Recon-all Longitunal Output</option>
+    </select>
+    <br />
+
+    <input id="pp-hid" class="dlg-chk" type="checkbox" />
+    <label for="pp-hid" class="dlg-chk-icon">
+      <span class="ui-icon ui-icon-check"></span>
+    </label>
+    <label for="pp-hid"
+      class="dlg-chk-lbl html_tool_tip_trigger"
+      data-tool-tip-id="pp-hid-tp"
+      data-offset-x="80"
+      data-offset-y="-2"
+    >
+      Hidden (<span class="pp-hid-ind">H</span>)
+    </label>
+    <br />
+
+    <input id="pp-ro" class="dlg-chk" type="checkbox" />
+    <label for="pp-ro" class="dlg-chk-icon">
+      <span class="ui-icon ui-icon-check"></span>
+    </label>
+    <label for="pp-ro"
+      class="dlg-chk-lbl html_tool_tip_trigger"
+      data-tool-tip-id="pp-ro-tp"
+      data-offset-x="80"
+      data-offset-y="-2"
+    >
+      Locked (<span class="pp-ro-ind">I</span>)
+    </label>
+  </form>
+</div>
+
+<!-- FIXME -->
+<div id="pp-hid-tp" class="html_tool_tip" style="z-index:105">
+  Hidden files are invisible by default, and are usually reserved for
+  maintenance, internal and archiving purposes.
+</div>
+
+<div id="pp-ro-tp" class="html_tool_tip" style="z-index:105">
+  Locked files cannot be modified or moved across data providers.
+</div>
+
+<div id="tag-dialog" title="Tags">
+  <form action="#" method="post">
+    <select id="tag-mov-prj" class="tag-in-prj">
+      <optgroup label="My Work Projects">
+        <option value="26">myhats</option>
+        <option value="27">mymusic</option>
+      </optgroup>
+      <optgroup label="Personal Work Projects of Caroline Bingley">
+        <option value="30">REVOLUTION</option>
+      </optgroup>
+      <optgroup label="Shared Work Projects">
+        <option value="23">dancers</option>
+      </optgroup>
+      <optgroup label="Empty Work Projects">
+        <option value="29">master</option>
+      </optgroup>
+      <optgroup label="Site Projects">
+        <option value="5">Longbourne (Hertfordshire)</option>
+        <option value="6">Netherfield Park (Hertfordshire)</option>
+        <option value="7">Pemberley (Devonshire)</option>
+      </optgroup>
+      <optgroup label="User Projects">
+        <option value="2" selected="selected">admin (CBRAIN Administrator)</option>
+        <option value="15">cabingley (Caroline Bingley)</option>
+        <option value="11">cbennet (Catherine Bennet)</option>
+        <option value="14">chbingley (Charles Bingley)</option>
+        <option value="19">chlucas (Charlotte Lucas)</option>
+        <option value="10">ebennet (Elizabeth Bennet)</option>
+        <option value="17">gedarcy (Georgiana Darcy)</option>
+        <option value="18">gewickham (George Wickham)</option>
+        <option value="9">jbennet (Jane Bennet)</option>
+        <option value="13">lbennet (Lydia Bennet)</option>
+        <option value="12">mbennet (Mary Bennet)</option>
+        <option value="8">mrbennet (Mr Bennet)</option>
+        <option value="16">mrdarcy (Mr Darcy)</option>
+        <option value="21">mrgardiner (Mr Gardiner)</option>
+        <option value="4">test (Test)</option>
+        <option value="20">wicollins (William Collins)</option>
+      </optgroup>
+      <optgroup label="Invisible Projects">
+        <option value="24">gentlemen</option>
+        <option value="25">ladies</option>
+        <option value="28">masters of the system</option>
+        <option value="22">wise people</option>
+      </optgroup>
+      <optgroup label="Everyone Projects">
+        <option value="1">everyone</option>
+      </optgroup>
+    </select>
+    <table id="tag-table">
+      <thead>
+        <tr id="tag-hdr" class="tag-row">
+          <th class="tag-name">Tag</th>
+          <th class="tag-prj">Project</th>
+          <th class="tag-files">Files</th>
+          <th class="tag-act"></th>
+        </tr>
+      </thead>
+      <tbody class="tag-body">
+        <tr class="tag-row">
+          <td class="tag-name">
+            <span class="tag-txt-name">A</span>
+          </td>
+          <td class="tag-prj">
+            <span class="tag-txt-prj" data-value="26">myhats</span>
+          </td>
+          <td class="tag-files">45</td>
+          <td class="tag-act"><span class="ui-icon ui-icon-minusthick"></span></td>
+        </tr>
+        <tr class="tag-row">
+          <td class="tag-name">
+            <span class="tag-txt-name">B</span>
+          </td>
+          <td class="tag-prj">
+            <span class="tag-txt-prj" data-value="27">mymusic</span>
+          </td>
+          <td class="tag-files">58</td>
+          <td class="tag-act"><span class="ui-icon ui-icon-minusthick"></span></td>
+        </tr>
+        <tr class="tag-row">
+          <td class="tag-name">
+            <span class="tag-txt-name">C</span>
+          </td>
+          <td class="tag-prj">
+            <span class="tag-txt-prj" data-value="1">everyone</span>
+          </td>
+          <td class="tag-files">0</td>
+          <td class="tag-act"><span class="ui-icon ui-icon-minusthick"></span></td>
+        </tr>
+      </tbody>
+      <tfoot class="tag-add">
+        <tr class="tag-row">
+          <td class="tag-name">
+            <input class="tag-in-name" type="text" />
+          </td>
+          <td class="tag-prj">
+            <select class="tag-in-prj">
+              <optgroup label="My Work Projects">
+                <option value="26">myhats</option>
+                <option value="27">mymusic</option>
+              </optgroup>
+              <optgroup label="Personal Work Projects of Caroline Bingley">
+                <option value="30">REVOLUTION</option>
+              </optgroup>
+              <optgroup label="Shared Work Projects">
+                <option value="23">dancers</option>
+              </optgroup>
+              <optgroup label="Empty Work Projects">
+                <option value="29">master</option>
+              </optgroup>
+              <optgroup label="Site Projects">
+                <option value="5">Longbourne (Hertfordshire)</option>
+                <option value="6">Netherfield Park (Hertfordshire)</option>
+                <option value="7">Pemberley (Devonshire)</option>
+              </optgroup>
+              <optgroup label="User Projects">
+                <option value="2" selected="selected">admin (CBRAIN Administrator)</option>
+                <option value="15">cabingley (Caroline Bingley)</option>
+                <option value="11">cbennet (Catherine Bennet)</option>
+                <option value="14">chbingley (Charles Bingley)</option>
+                <option value="19">chlucas (Charlotte Lucas)</option>
+                <option value="10">ebennet (Elizabeth Bennet)</option>
+                <option value="17">gedarcy (Georgiana Darcy)</option>
+                <option value="18">gewickham (George Wickham)</option>
+                <option value="9">jbennet (Jane Bennet)</option>
+                <option value="13">lbennet (Lydia Bennet)</option>
+                <option value="12">mbennet (Mary Bennet)</option>
+                <option value="8">mrbennet (Mr Bennet)</option>
+                <option value="16">mrdarcy (Mr Darcy)</option>
+                <option value="21">mrgardiner (Mr Gardiner)</option>
+                <option value="4">test (Test)</option>
+                <option value="20">wicollins (William Collins)</option>
+              </optgroup>
+              <optgroup label="Invisible Projects">
+                <option value="24">gentlemen</option>
+                <option value="25">ladies</option>
+                <option value="28">masters of the system</option>
+                <option value="22">wise people</option>
+              </optgroup>
+              <optgroup label="Everyone Projects">
+                <option value="1">everyone</option>
+              </optgroup>
+            </select>
+          </td>
+          <td class="tag-files"></td>
+          <td class="tag-act"><span class="ui-icon ui-icon-plusthick"></span></td>
+        </tr>
+      </tfoot>
+    </table>
+  </form>
+</div>
+
+<div id="rel-dialog" title="Parent/child relationships">
+  <div id="rel-msg">
+    Drag and drop the files below to relate them to eachother.
+  </div>
+
+  <div id="rel-tree"></div>
+</div>
+
+<script>
+  /* TODO cleanup */
+
+  $(function () {
+    $('.act-btn').each(function () {
+      $(this).button({ icons: { primary: $(this).data('icon') } });
+    });
+
+    $('#upload-btn').click(function () {
+      $('#upload-dialog').dialog('open');
+      $('#up-file').trigger('click');
+    });
+
+    $('#menu-list').menu({
+      position: { my: 'right top', at: 'left top' }
+    });
+
+    $('#menu-list .ui-icon-carat-1-e')
+      .removeClass('ui-icon-carat-1-e')
+      .addClass('ui-icon-carat-1-w');
+
+    $('#menu-btn').click(function () {
+      $('#menu-list').toggle();
+    });
+
+    $('#menu-list .ui-menu-item').click(function () {
+      $('#menu-list').hide();
+    });
+
+    $('#tag-item').click(function () {
+      $('#tag-dialog').dialog('open');
+    });
+
+    $('#prop-item').click(function () {
+      $('#prop-dialog').dialog('open');
+    });
+
+    $('#rel-item').click(function () {
+      $('#rel-dialog').dialog('open');
+    });
+  });
+
+  $(function () {
+    var MAX_UPLOAD = 1e+6; // 5e+8 == 500 MB
+
+    var udialog = $('#upload-dialog');
+
+    udialog.dialog({
+      autoOpen: false,
+      resizable: false,
+      modal: true,
+      width: 'auto',
+      height: 'auto',
+      dialogClass: 'dlg-ovfl',
+      buttons: {
+        Upload: function () { udialog.dialog('close'); },
+        Cancel: function () { udialog.dialog('close'); }
+      },
+      open: function () {
+        var pane = $('#upload-dialog ~ .ui-dialog-buttonpane');
+
+        pane.find('button:contains("Cancel")')
+          .button({ icons: { primary: 'ui-icon-closethick' } });
+
+        pane.find('button:contains("Upload")')
+          .button({ icons: { primary: 'ui-icon-arrowthick-1-n' } });
+
+        if (!$('#up-alt-help').length)
+          pane.prepend('<span id="up-alt-help">Large datasets?</span>');
+      }
+    });
+
+    $('#up-tag').chosen({ width: '300px', });
+
+    udialog.delegate('#up-file', 'change.up-dlg', function () {
+      /* TODO incomplete/poc */
+      var name = $(this).val(),
+          type = undefined;
+
+      if (/\.tar(\.bz2|\.gz)?$/.test(name))
+        type = 'TarArchive';
+      else if (/\.txt$/.test(name))
+        type = 'TextFile';
+      else
+        type = 'SingleFile';
+
+      var unknown = (type !== 'SingleFile');
+      if (!unknown) $('#up-opt-toggle').prop('checked', true);
+
+      $('#up-type-auto').toggle(unknown);
+      $('#up-type-unknown').css({
+        visibility: unknown ? 'hidden' : 'visible'
+      });
+
+      $('#up-type').val(type).trigger('change.up-dlg');
+    });
+
+    if (window.FileReader)
+      udialog.delegate('#up-file', 'change.up-dlg', function () {
+        var visible = (
+          this.files &&
+          this.files[0] &&
+          this.files[0].size > MAX_UPLOAD
+        );
+
+        $('#up-file-warn').css({ visibility: visible ? 'visible' : 'hidden' });
+
+        udialog.parent().find(':button:contains("Upload")')
+          .prop('disabled', visible)
+          .toggleClass('ui-state-disabled', visible);
+      });
+
+    udialog.delegate('#up-type', 'change.up-dlg', function (event) {
+      if (event.namespace !== 'up-dlg') $('#up-type-auto').hide();
+
+      $('#up-ex-container').toggle(/Archive$/.test($(this).val()));
+    });
+  });
+
+  $(function () {
+    var pdialog = $('#prop-dialog');
+
+    pdialog.dialog({
+      autoOpen: false,
+      resizable: false,
+      modal: true,
+      width: 'auto',
+      height: 'auto',
+      buttons: {
+        Apply:  function () { pdialog.dialog('close'); },
+        Cancel: function () { pdialog.dialog('close'); }
+      },
+      open: function () {
+        var pane = $('#prop-dialog ~ .ui-dialog-buttonpane');
+
+        pane.find('button:contains("Cancel")')
+          .button({ icons: { primary: 'ui-icon-closethick' } });
+
+        pane.find('button:contains("Apply")')
+          .button({ icons: { primary: 'ui-icon-check' } });
+      }
+    });
+
+    $('#pp-tag').chosen({ width: '300px', });
+  });
+
+  $(function () {
+    var tdialog = $('#tag-dialog');
+
+    tdialog.dialog({
+      autoOpen: false,
+      resizable: false,
+      modal: true,
+      width: 'auto',
+      height: 'auto',
+      buttons: {
+        Close: function () { tdialog.dialog('close'); },
+      },
+      open: function () {
+        var pane = $('#tag-dialog ~ .ui-dialog-buttonpane');
+
+        pane.find('button:contains("Close")')
+          .button({ icons: { primary: 'ui-icon-closethick' } });
+      }
+    });
+
+    tdialog.delegate(
+      '.tag-body .tag-txt-name',
+      'click.tag-dlg', function () {
+        var input = $('<input class="tag-in-name" type="text" />')
+            .val($(this).text());
+
+        tdialog.find('.tag-body .tag-in-name').blur();
+
+        $(this).replaceWith(input);
+        input.focus();
+      }
+    );
+
+    tdialog.delegate(
+      '.tag-body .tag-in-name',
+      'blur.tag-dlg, keyup.tag-dlg',
+      function (event) {
+        if (typeof event.keyCode !== 'undefined' && event.keyCode !== 13)
+          return;
+
+        $(this).replaceWith(
+          $('<span class="tag-txt-name">')
+            .text($(this).val())
+        );
+      }
+    );
+
+    tdialog.delegate(
+      '.tag-body .tag-txt-prj',
+      'click.tag-dlg', function () {
+        $(this).replaceWith(
+          $('#tag-mov-prj')
+            .trigger('blur.tag-dlg')
+            .val($(this).data('value'))
+            .show()
+        );
+      }
+    );
+
+    tdialog.delegate(
+      '.tag-body .tag-in-prj',
+      'blur.tag-dlg',
+      function () {
+        $(this)
+          .replaceWith(
+            $('<span class="tag-txt-prj">')
+              .text($(this).find(':selected').text())
+              .data('value', $(this).val())
+          )
+          .appendTo('#tag-dialog > form')
+          .hide();
+      }
+    );
+  });
+
+  $(function () {
+    var rdialog = $('#rel-dialog');
+
+    rdialog.dialog({
+      autoOpen: false,
+      resizable: false,
+      modal: true,
+      width: 'auto',
+      height: 'auto',
+      dialogClass: 'dlg-ovfl',
+      buttons: {
+        Apply: function () { rdialog.dialog('close'); },
+        Close: function () { rdialog.dialog('close'); },
+      },
+      open: function () {
+        var pane = $('#rel-dialog ~ .ui-dialog-buttonpane');
+
+        pane.find('button:contains("Close")')
+          .button({ icons: { primary: 'ui-icon-closethick' } });
+
+        pane.find('button:contains("Apply")')
+          .button({ icons: { primary: 'ui-icon-check' } });
+      }
+    });
+
+    var sample_data = [
+      { label: 'civet-593897', children: [
+        { label: 'stats-593897.r', children: [
+          { label: 'statval-230958423' },
+          { label: 'specval-239587232' },
+          { label: 'wildval-235987896' }
+        ] },
+        { label: 'hproc-593897.hu', children: [
+          { label: 'cond-A67F' },
+          { label: 'data-593897.therealthing.minc' }
+        ] }
+      ] },
+      { label: 'civet-546847', children: [
+        { label: 'stats-546847.r', children: [
+          { label: 'statval-060458406' },
+          { label: 'specval-064587060' },
+          { label: 'wildval-065487846' }
+        ] },
+        { label: 'hproc-546847.hu', children: [
+          { label: 'cond-A67F' },
+          { label: 'data-546847.therealthing.minc' }
+        ] }
+      ] }
+    ];
+
+    $('#rel-tree').tree({
+      autoOpen: true,
+      autoEscape: false,
+      slide: false,
+      selectable: false,
+      dragAndDrop: true,
+      useContextMenu: false,
+      data: sample_data,
+      onCreateLi: function (node, item) {
+        item.find('.jqtree-title').append(
+          '<span class="rel-mov-icon ui-icon ui-icon-triangle-2-n-s">'
+        );
+      }
+    });
+  });
+
+  $(function () {
+    function toggle_menu() {
+      var checked = $('input[name="file_ids[]"]:checked').length;
+      /* add in psel... */
+
+      $('#dynamic-actions').toggleClass('hidden', checked === 0);
+      $('#ren-btn').toggle(checked == 1);
+
+      $('#prop-item, #sync-item, #mnew-item, #mnew-item + li')
+        .toggle(checked > 0);
+    };
+
+    $('#userfiles_table').delegate(
+      'input[name="file_ids[]"], th.dt-sel > .dt-sel-check',
+      'change', toggle_menu
+    );
+
+    toggle_menu();
+  });
+
+  $(function () {
+    $('#userfiles_table').delegate(
+      '.rename-fld',
+      'done.ren-fld keyup.ren-fld',
+      function (event) {
+        if (typeof event.keyCode !== 'undefined' && event.keyCode !== 13)
+          return;
+
+        $('#userfiles_table').unbind('click.ren-fld');
+
+        var input = $(this);
+        input.replaceWith(
+          $('<a>')
+            .prop('href', input.data('url'))
+            .text(input.val())
+        );
+      }
+    );
+
+    $('#ren-btn').click(function () {
+      var link = $('input[name="file_ids[]"]:checked')
+        .parent()
+        .siblings('.name')
+        .children('a');
+
+      $('.rename-fld').trigger('done.ren-fld');
+
+      $('#userfiles_table')
+        .bind('click.ren-fld', function (event) {
+          if ($(event.target).hasClass('rename-fld')) return;
+
+          $('.rename-fld').trigger('done.ren-fld');
+        });
+
+      link.replaceWith(
+        $('<input class="rename-fld">')
+          .data('url', link.prop('href'))
+          .val(link.text())
+      );
+    });
+  });
+</script>
